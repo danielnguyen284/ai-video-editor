@@ -1,0 +1,24 @@
+{
+  "id": "kinetic-motion-vi",
+  "version": "1.0.1",
+  "language": "vi",
+  "skills": {
+    "style": {
+      "id": "style/kinetic-motion",
+      "version": "1.0.1"
+    },
+    "domain": {
+      "id": "domain/general",
+      "version": "1.0.0"
+    }
+  },
+  "export": {
+    "preset": "vertical-shortform",
+    "width": 1080,
+    "height": 1920,
+    "fps": 30,
+    "fit": "pad"
+  },
+  "overrides": {},
+  "preferences_ref": "preferences/default.json"
+}

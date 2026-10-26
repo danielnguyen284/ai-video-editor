@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>AI Editor — Hướng dẫn bắt đầu</title>
+  <style>
+    :root{color-scheme:light;--ink:#182b28;--muted:#586b66;--line:#dce5df;--green:#176b50}
+    *{box-sizing:border-box}body{margin:0;background:#f4f6f1;color:var(--ink);font:16px/1.6 system-ui,-apple-system,"Segoe UI",sans-serif}
+    main{max-width:850px;margin:48px auto;padding:0 28px 40px}.eyebrow{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--green);font-weight:750}
+    h1{font-size:clamp(32px,6vw,48px);line-height:1.15;letter-spacing:-.04em;margin:12px 0 16px}h2{font-size:20px;margin:0 0 8px;line-height:1.4}
+    p{margin:8px 0}.intro{color:var(--muted);max-width:690px}ol{list-style:none;padding:0;counter-reset:step;margin:28px 0}li{position:relative;padding:22px 24px 22px 68px;background:white;border:1px solid var(--line);border-bottom:0}li:first-child{border-radius:14px 14px 0 0}li:last-child{border-bottom:1px solid var(--line);border-radius:0 0 14px 14px}
+    li::before{counter-increment:step;content:counter(step);position:absolute;left:23px;top:23px;font-weight:750;color:var(--green)}code{font-family:Consolas,monospace;font-size:.9em;overflow-wrap:anywhere}pre{margin:12px 0 0;padding:14px 16px;background:#142e27;color:#eff9f2;border-radius:8px;white-space:pre-wrap;overflow-wrap:anywhere;font-size:13px;line-height:1.65}
+    blockquote{border-left:3px solid var(--green);margin:12px 0 0;padding:4px 0 4px 15px}.styles{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:14px 0}.style{padding:12px 14px;border:1px solid var(--line);border-radius:8px}.style strong{display:block;font-size:14px}.style p{font-size:14px;color:var(--muted);margin-bottom:0}.note,footer{font-size:14px;color:var(--muted)}a{color:var(--green);text-underline-offset:3px}footer{display:flex;gap:20px;flex-wrap:wrap;margin-top:20px}
+    .whisper{margin:14px 0 0;padding:12px 15px;background:#fff7df;border-left:3px solid #b98419;border-radius:0 8px 8px 0;font-size:14px}.whisper p{margin-bottom:0}
+    @media(max-width:600px){main{margin-top:28px;padding:0 16px 24px}li{padding:20px 16px 20px 48px}li::before{left:17px;top:21px}.styles{grid-template-columns:1fr}pre{font-size:12px}}
+    @media print{body{background:white}main{margin:0 auto;padding:0}li{break-inside:avoid}pre{color:#142e27;background:#eef3ee}}
+  </style>
+</head>
+<body>
+<main>
+  <div class="eyebrow">AI Editor · Windows · TikTok</div>
+  <h1>Từ video gốc<br>đến bản dựng của bạn.</h1>
+  <p class="intro">AI chuẩn bị draft theo phương án bạn chọn. Mở AI Editor Studio trên máy để xem trực tiếp, sửa timeline/chữ/hình và khóa các phần đã ưng. FFmpeg xuất MP4 khi bạn bấm xuất.</p>
+  <ol>
+    <li>
+      <h2>Giải nén &amp; chuẩn bị</h2>
+      <p>Giải nén ZIP, mở thư mục <code>ai-editor</code> trong IDE. Cần <a href="https://www.python.org/downloads/windows/">Python 3.11+</a> (đã thử với 3.13), có lệnh <code>python</code>, và mạng cho lần cài đầu.</p>
+    </li>
+    <li>
+      <h2>Cài công cụ một lần</h2>
+      <p>Mở terminal PowerShell tại thư mục <code>ai-editor</code>, chạy:</p>
+      <pre><code>powershell -ExecutionPolicy Bypass -File .\scripts\setup.ps1 -WithTranscription -WithVision
+.\.venv\Scripts\python.exe ai_editor.py doctor</code></pre>
+      <p>Để có editor trực quan, chạy thêm:</p><pre><code>powershell -ExecutionPolicy Bypass -File .\scripts\setup.ps1 -WithEditor
+.\.venv\Scripts\python.exe ai_editor.py editor</code></pre>
+      <p class="note">Mở <a href="http://127.0.0.1:8765">editor local</a>, giữ terminal chạy. Editor có autosave, undo/redo và khóa vùng. Xem <a href="core/visual-editor.md">hướng dẫn sửa trực quan</a>. Setup editor không tải model Whisper.</p>
+      <aside class="whisper"><strong>Whisper cần tải model riêng — không có sẵn trong ZIP.</strong><p>Lệnh setup chỉ cài thư viện STT. Khi bạn chọn phiên âm lần đầu, AI hỏi model rồi mới chạy: <code>large-v3</code> khoảng <strong>3 GB</strong>, hoặc <code>small</code> nhẹ hơn. Cần mạng, dung lượng đĩa và thời gian chờ tải; chạy large-v3 trên CPU cũng có thể chậm. Các video sau tái sử dụng model đã cache nếu còn đầy đủ. <code>doctor</code> báo STT đã cài không có nghĩa model đã tải. <a href="README.md#whisper">Chi tiết và lệnh dùng model</a>.</p></aside>
+      <p class="note">Chỉ khi cần motion Remotion: cài <a href="https://nodejs.org/en/download">Node.js</a>, có Chrome/Edge, rồi chạy lại lệnh setup thêm <code>-WithMotion</code>.</p>
+    </li>
+    <li>
+      <h2>Đặt video &amp; gửi yêu cầu cho AI</h2>
+      <p>Copy video vào <code>inbox/raw.mp4</code>. Chọn style trong prompt:</p>
+      <div class="styles">
+        <div class="style"><strong>Visual keyword</strong><code>finance-visual-keyword-vi</code><p>Tiêu đề ngay đầu, keyword lớn, ảnh minh họa chọn lọc.</p></div>
+        <div class="style"><strong>Premium explainer</strong><code>finance-premium-vi</code><p>Caption theo lời nói thành cụm, dựng tiết chế.</p></div>
+        <div class="style"><strong>Talking-head pro</strong><code>talking-head-pro-vi</code><p>Caption gọn, nhấn ý và infographic. Bản tài chính: <code>finance-talking-head-pro-vi</code>.</p></div>
+        <div class="style"><strong>Kinetic motion</strong><code>kinetic-motion-vi</code><p>Chữ lớn, thẻ UI xuất hiện lần lượt, progress. Bản tài chính: <code>finance-kinetic-motion-vi</code>.</p></div>
+      </div>
+      <blockquote>Dựng <code>inbox/raw.mp4</code> bằng profile <code>finance-visual-keyword-vi</code>, tạo job <code>video-001</code>. Đọc AGENTS.md và đưa lựa chọn cho tôi trước khi dựng: tiêu đề, keyword, ảnh minh họa, cách cắt và âm thanh.</blockquote>
+      <p class="note">Bạn trả lời các lựa chọn trong chat; AI chuẩn bị plan và chạy CLI. Không cần tự sửa JSON. Ảnh và nhạc được chọn theo từng video; gói không kèm sẵn thư viện media.</p>
+      <p class="note">Hai style mới tự viết từ mẫu công khai, không kèm file/source trả phí của tác giả. <a href="skills/styles/kinetic-motion/SKILL.md">Kinetic motion</a> dùng Remotion KineticScene (cần setup thêm <code>-WithMotion</code>); chưa có vật thể 3D, zoom camera hoặc SFX theo timeline. CLI vẫn cần video nguồn; nếu mới có script thì bắt đầu bằng storyboard.</p>
+    </li>
+    <li>
+      <h2>Xem bản xuất &amp; yêu cầu sửa</h2>
+      <p>Trong editor, chọn cue/layer để sửa riêng. Khóa vùng đã ưng để bảo vệ mọi lớp tại đoạn đó; muốn thay vùng khóa cần mở khóa rõ ràng. Có thể chọn revision AI dựng ở cạnh tên job. Preview không cần encode MP4; bản xuất mới vẫn encode toàn timeline, có cache motion không đổi.</p>
+      <p>Video ở <code>jobs/video-001/revisions/r001/renders/video.mp4</code>. Xem rồi gửi:</p>
+      <blockquote>Job <code>video-001</code>, bản <code>r001</code>: giây 12–15 bỏ ảnh minh họa, nhạc nhỏ hơn. Tạo revision mới, giữ bản cũ.</blockquote>
+      <p class="note">Mốc thời gian tính theo bản bạn đang xem. Khi ưng ý, chọn revision làm bản final.</p>
+      <p class="note">Mỗi lần bạn yêu cầu edit hoặc sửa, AI chắt lọc bài học dùng lại được để cập nhật skill và tài liệu liên quan. Chi tiết riêng của video được giữ trong job; các lựa chọn dựng vẫn do bạn chốt.</p>
+    </li>
+  </ol>
+  <p class="note">Bản ZIP chỉ gồm mã nguồn và hướng dẫn. Môi trường, model, video/job cá nhân và cache sẽ được tạo trên máy người dùng. CLI dựng local không cần khóa LLM; AI agent trong IDE do bạn cung cấp.</p>
+  <footer><a href="README.md">README chi tiết</a><a href="AGENTS.md">Hướng dẫn cho AI</a><a href="profiles/finance-visual-keyword-vi.json">Profile visual keyword</a></footer>
+</main>
+</body>
+</html>

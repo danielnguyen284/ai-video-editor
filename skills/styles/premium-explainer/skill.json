@@ -1,0 +1,17 @@
+{
+  "id": "style/premium-explainer",
+  "version": "1.2.1",
+  "kind": "style",
+  "roles": ["editor", "animator", "sound-designer", "finisher"],
+  "entrypoint": "SKILL.md",
+  "defaults": {
+    "captions": {
+      "font_name": "Arial",
+      "font_size": 58,
+      "margin_v": 300,
+      "max_chars": 28,
+      "max_lines": 2
+    },
+    "audio": {"voice_gain": 1.0, "music": null}
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "scope": "user",
+  "editorial_preferences": {
+    "primary_platform": "tiktok",
+    "visual_revision_workflow": {
+      "local_editor": true,
+      "preserve_approved_regions": true
+    }
+  },
+  "overrides": {},
+  "feedback_sources": []
+}

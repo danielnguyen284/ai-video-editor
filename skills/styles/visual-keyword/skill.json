@@ -1,0 +1,19 @@
+{
+  "id": "style/visual-keyword",
+  "version": "1.0.1",
+  "kind": "style",
+  "roles": ["editor", "researcher", "animator", "sound-designer", "finisher"],
+  "entrypoint": "SKILL.md",
+  "resources": ["references/sample-analysis.md", "references/implementation.md", "scripts/render_text.py"],
+  "defaults": {
+    "captions": {
+      "font_name": "Arial",
+      "font_size": 96,
+      "margin_v": 520,
+      "max_chars": 16,
+      "max_lines": 2,
+      "items": []
+    },
+    "audio": {"voice_gain": 1.0, "music": null}
+  }
+}

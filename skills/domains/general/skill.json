@@ -1,0 +1,8 @@
+{
+  "id": "domain/general",
+  "version": "1.0.0",
+  "kind": "domain",
+  "roles": ["editor", "transcriber", "researcher"],
+  "entrypoint": "SKILL.md",
+  "defaults": {}
+}

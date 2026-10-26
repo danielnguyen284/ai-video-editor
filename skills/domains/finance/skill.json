@@ -1,0 +1,9 @@
+{
+  "id": "domain/finance",
+  "version": "1.0.0",
+  "kind": "domain",
+  "roles": ["editor", "transcriber", "researcher", "animator"],
+  "entrypoint": "SKILL.md",
+  "defaults": {},
+  "resources": ["glossary.txt", "sources.md"]
+}

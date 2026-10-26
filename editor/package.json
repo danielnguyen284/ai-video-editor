@@ -1,0 +1,25 @@
+{
+  "name": "ai-editor-studio",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "tsc --noEmit && vite build",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test tests/*.test.mjs"
+  },
+  "dependencies": {
+    "@remotion/player": "4.0.536",
+    "remotion": "4.0.536",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "@phosphor-icons/react": "2.1.10"
+  },
+  "devDependencies": {
+    "vite": "8.3.5",
+    "typescript": "7.0.2",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0"
+  }
+}

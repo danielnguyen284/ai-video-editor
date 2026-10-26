@@ -1,0 +1,31 @@
+{
+  "id": "style/talking-head-pro",
+  "version": "1.0.1",
+  "kind": "style",
+  "roles": [
+    "editor",
+    "transcriber",
+    "researcher",
+    "animator",
+    "sound-designer",
+    "finisher"
+  ],
+  "entrypoint": "SKILL.md",
+  "resources": [
+    "references/source-analysis.md",
+    "references/implementation.md"
+  ],
+  "defaults": {
+    "captions": {
+      "font_name": "Arial",
+      "font_size": 50,
+      "margin_v": 320,
+      "max_chars": 28,
+      "max_lines": 2
+    },
+    "audio": {
+      "voice_gain": 1.0,
+      "music": null
+    }
+  }
+}
