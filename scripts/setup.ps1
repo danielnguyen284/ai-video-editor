@@ -35,6 +35,7 @@ try {
             & npm.cmd run build
             if ($LASTEXITCODE -ne 0) { throw 'Editor build failed.' }
         } finally { Pop-Location }
+        & (Join-Path $PSScriptRoot 'create_shortcut.ps1')
     }
     & $projectPython ai_editor.py doctor
     if ($LASTEXITCODE -ne 0) { throw 'Required tools are missing.' }

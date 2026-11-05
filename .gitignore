@@ -14,11 +14,17 @@ preferences/local*.json
 *.mp3
 *.wav
 *.m4a
+*.m4v
+*.aac
+*.flac
+*.ogg
 inbox/*
 !inbox/.gitkeep
 jobs/*
 !jobs/.gitkeep
 .test-output/
+.studio/
+temp_inputs/
 motion/node_modules/
 motion/.cache/
 editor/node_modules/

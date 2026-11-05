@@ -51,6 +51,8 @@ class PackageTests(unittest.TestCase):
             names = bundle.namelist()
             self.assertIsNone(bundle.testzip())
             self.assertIn("ai-editor/HUONG-DAN.html",names)
+            self.assertIn("ai-editor/launch_editor.pyw",names)
+            self.assertIn("ai-editor/Open AI Editor.cmd",names)
             self.assertIn("ai-editor/motion/package-lock.json",names)
             self.assertIn("ai-editor/skills/style/SKILL.md",names)
             self.assertIn("ai-editor/editor/src/main.tsx",names)

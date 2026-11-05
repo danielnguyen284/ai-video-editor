@@ -8,15 +8,18 @@ export const StudioPlayer = React.memo(function StudioPlayer({
   playerRef,
   project,
   view,
+  initialFrame,
 }: {
   playerRef: React.RefObject<PlayerRef | null>;
   project: Project;
   view: View;
+  initialFrame: number;
 }) {
   const p = project.plan;
   return (
     <Player
       ref={playerRef}
+      initialFrame={Math.min(initialFrame, p.duration_frames - 1)}
       component={Preview}
       inputProps={{ project, view }}
       durationInFrames={p.duration_frames}

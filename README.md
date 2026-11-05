@@ -11,7 +11,9 @@ powershell -ExecutionPolicy Bypass -File .\scripts\setup.ps1 -WithEditor
 .\.venv\Scripts\python.exe ai_editor.py editor
 ```
 
-Mở [AI Editor Studio trên máy](http://127.0.0.1:8765). Chọn job hoặc tạo từ đường dẫn video, sửa chữ/timing từng cue, kéo layer trên preview, kéo/trim trên timeline, chia clip, đổi thứ tự và chỉnh nội dung Kinetic. Có autosave, undo/redo, snapshot và mở revision do AI dựng. Khóa một vùng sẽ bảo vệ mọi lớp tác động tới vùng đó, được kiểm tra cả lúc lưu lẫn khi xuất bằng CLI.
+Sau setup `-WithEditor`, nhấp shortcut **AI Editor Studio** trên desktop hoặc file **Open AI Editor.cmd** trong thư mục dự án. Launcher bật server ẩn và mở browser; mở nhiều lần dùng lại cùng server. Studio khôi phục project, tab, độ phóng timeline và vị trí xem gần nhất trong cùng browser. Không tự phát video. Có thể tạo lại shortcut bằng `scripts/create_shortcut.ps1`.
+
+Mở [AI Editor Studio trên máy](http://127.0.0.1:8765). Tạo project bằng **Chọn video từ máy…**, hoặc nhập đường dẫn. Nút **+** ở Tài nguyên mở hộp chọn nhiều video/ảnh/nhạc; thư viện hiện thumbnail (nhạc có waveform), bấm để thêm vào timeline. Tab **Lời thoại** tìm caption, sửa từng câu, thay câu chọn hoặc thay tất cả câu chưa khóa, có phân biệt hoa thường. Sửa chữ/timing từng cue, kéo layer trên preview, kéo/trim trên timeline, chia clip, đổi thứ tự và chỉnh nội dung Kinetic. Có autosave, undo/redo, snapshot và mở revision do AI dựng. Khóa một vùng sẽ bảo vệ mọi lớp tác động tới vùng đó, được kiểm tra cả lúc lưu lẫn khi xuất bằng CLI.
 
 **Sửa và preview không encode MP4.** Chỉ khi bấm Xuất MP4 mới tạo revision và encode video cuối; motion không đổi được tái sử dụng. Chưa có smart-render chỉ encode các đoạn sửa. Preview caption có thể khác ASS đôi chút, ducking chỉ áp khi xuất. [Cách dùng, giới hạn và workflow AI ↔ editor](core/visual-editor.md).
 

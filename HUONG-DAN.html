@@ -34,13 +34,13 @@
 .\.venv\Scripts\python.exe ai_editor.py doctor</code></pre>
       <p>Để có editor trực quan, chạy thêm:</p><pre><code>powershell -ExecutionPolicy Bypass -File .\scripts\setup.ps1 -WithEditor
 .\.venv\Scripts\python.exe ai_editor.py editor</code></pre>
-      <p class="note">Mở <a href="http://127.0.0.1:8765">editor local</a>, giữ terminal chạy. Editor có autosave, undo/redo và khóa vùng. Xem <a href="core/visual-editor.md">hướng dẫn sửa trực quan</a>. Setup editor không tải model Whisper.</p>
+      <p class="note">Sau setup, nhấp shortcut <strong>AI Editor Studio</strong> trên desktop hoặc <code>Open AI Editor.cmd</code> trong thư mục dự án. App tự bật server ẩn, mở browser và khôi phục project/vị trí xem gần nhất. Mở nhiều lần dùng lại server. Editor có autosave, undo/redo và khóa vùng. Nếu mở bằng CLI thì giữ terminal chạy. Xem <a href="core/visual-editor.md">hướng dẫn sửa trực quan</a>. Setup editor không tải model Whisper.</p>
       <aside class="whisper"><strong>Whisper cần tải model riêng — không có sẵn trong ZIP.</strong><p>Lệnh setup chỉ cài thư viện STT. Khi bạn chọn phiên âm lần đầu, AI hỏi model rồi mới chạy: <code>large-v3</code> khoảng <strong>3 GB</strong>, hoặc <code>small</code> nhẹ hơn. Cần mạng, dung lượng đĩa và thời gian chờ tải; chạy large-v3 trên CPU cũng có thể chậm. Các video sau tái sử dụng model đã cache nếu còn đầy đủ. <code>doctor</code> báo STT đã cài không có nghĩa model đã tải. <a href="README.md#whisper">Chi tiết và lệnh dùng model</a>.</p></aside>
       <p class="note">Chỉ khi cần motion Remotion: cài <a href="https://nodejs.org/en/download">Node.js</a>, có Chrome/Edge, rồi chạy lại lệnh setup thêm <code>-WithMotion</code>.</p>
     </li>
     <li>
       <h2>Đặt video &amp; gửi yêu cầu cho AI</h2>
-      <p>Copy video vào <code>inbox/raw.mp4</code>. Chọn style trong prompt:</p>
+      <p>Trong Studio, bấm Tạo project → <strong>Chọn video từ máy…</strong>. Nút <strong>+</strong> ở Tài nguyên chọn thêm nhiều video/ảnh/nhạc, có thumbnail để nhận diện. Hoặc copy video vào <code>inbox/raw.mp4</code> rồi chọn style trong prompt:</p>
       <div class="styles">
         <div class="style"><strong>Visual keyword</strong><code>finance-visual-keyword-vi</code><p>Tiêu đề ngay đầu, keyword lớn, ảnh minh họa chọn lọc.</p></div>
         <div class="style"><strong>Premium explainer</strong><code>finance-premium-vi</code><p>Caption theo lời nói thành cụm, dựng tiết chế.</p></div>
@@ -53,7 +53,7 @@
     </li>
     <li>
       <h2>Xem bản xuất &amp; yêu cầu sửa</h2>
-      <p>Trong editor, chọn cue/layer để sửa riêng. Khóa vùng đã ưng để bảo vệ mọi lớp tại đoạn đó; muốn thay vùng khóa cần mở khóa rõ ràng. Có thể chọn revision AI dựng ở cạnh tên job. Preview không cần encode MP4; bản xuất mới vẫn encode toàn timeline, có cache motion không đổi.</p>
+      <p>Tab <strong>Lời thoại</strong> cho phép tìm caption, bấm thời gian để xem đúng đoạn, sửa trực tiếp và thay từ hàng loạt. Câu chạm vùng đã khóa được giữ nguyên; có báo số câu thay đổi/bỏ qua và undo. Chọn cue/layer để sửa riêng. Khóa vùng đã ưng để bảo vệ mọi lớp tại đoạn đó; muốn thay vùng khóa cần mở khóa rõ ràng. Có thể chọn revision AI dựng ở cạnh tên job. Preview không cần encode MP4; bản xuất mới vẫn encode toàn timeline, có cache motion không đổi.</p>
       <p>Video ở <code>jobs/video-001/revisions/r001/renders/video.mp4</code>. Xem rồi gửi:</p>
       <blockquote>Job <code>video-001</code>, bản <code>r001</code>: giây 12–15 bỏ ảnh minh họa, nhạc nhỏ hơn. Tạo revision mới, giữ bản cũ.</blockquote>
       <p class="note">Mốc thời gian tính theo bản bạn đang xem. Khi ưng ý, chọn revision làm bản final.</p>

@@ -9,16 +9,20 @@ import re
 import shutil
 import subprocess
 import threading
+import uuid
 from urllib.parse import parse_qs, quote, unquote, urlparse
 import webbrowser
 
 from core.common import EditorError, ROOT, executable, identifier, read_json, within
 from core.editor_service import EditorStore, fingerprint
+from core.editor_media import MEDIA_EXTENSIONS, media_type, receive_upload, MAX_UPLOAD_BYTES
 
 
 def make_server(port=8765, root=ROOT):
     store = EditorStore(root)
     proxy_mutex = threading.Lock()
+    thumbnail_mutex = threading.Lock()
+    duration_cache = {}
 
     class Handler(BaseHTTPRequestHandler):
         protocol_version = 'HTTP/1.1'
@@ -41,6 +45,8 @@ def make_server(port=8765, root=ROOT):
                 url = urlparse(self.path)
                 query = {k: v[0] for k, v in parse_qs(url.query).items()}
                 path = unquote(url.path)
+                if path == '/api/health':
+                    return self.send_json({'app': 'ai-editor-studio', 'workspace': fingerprint(str(store.root.resolve())), 'version': 1})
                 if path == '/api/jobs':
                     return self.send_json(store.jobs())
                 if path == '/api/profiles':
@@ -59,6 +65,32 @@ def make_server(port=8765, root=ROOT):
                     return self.send_json(state)
                 if path == '/api/library':
                     return self.send_json(self.library(store.folder(query['job'])))
+                if path == '/thumbnail':
+                    folder = store.folder(query['job'])
+                    source = within(folder, query['path'])
+                    kind = media_type(source)
+                    if not source.is_file():
+                        raise EditorError('Không tìm thấy media để tạo thumbnail.')
+                    if kind == 'image':
+                        return self.send_file(source)
+                    key = fingerprint([str(source), source.stat().st_mtime_ns, source.stat().st_size])
+                    target = folder/'editor/thumbnails'/f'{key}.jpg'
+                    with thumbnail_mutex:
+                        if not target.is_file():
+                            target.parent.mkdir(parents=True, exist_ok=True)
+                            temporary = target.with_name(uuid.uuid4().hex+'.jpg')
+                            command = [executable('ffmpeg'), '-v', 'error', '-nostdin']
+                            if kind == 'audio': command += ['-t', '20']
+                            command += ['-i', str(source)]
+                            command += ['-filter_complex', 'aformat=channel_layouts=mono,showwavespic=s=240x100:colors=0xc1e875', '-frames:v', '1'] if kind == 'audio' else ['-vf', 'thumbnail=30,scale=240:160:force_original_aspect_ratio=decrease', '-frames:v', '1']
+                            try:
+                                result = subprocess.run(command+['-update', '1', str(temporary)], capture_output=True, timeout=30)
+                                if result.returncode or not temporary.is_file():
+                                    raise EditorError('Không tạo được thumbnail cho file này.')
+                                temporary.replace(target)
+                            finally:
+                                temporary.unlink(missing_ok=True)
+                    return self.send_file(target)
                 if path == '/media':
                     folder = store.folder(query['job'])
                     target = within(folder, query['path'])
@@ -83,18 +115,61 @@ def make_server(port=8765, root=ROOT):
                 if not target.is_file():
                     target = build/'index.html'
                 return self.send_file(target)
-            except (EditorError, OSError, ValueError, KeyError, TypeError) as error:
+            except (EditorError, OSError, ValueError, KeyError, TypeError, subprocess.TimeoutExpired) as error:
                 self.send_json({'error': str(error)}, 400)
             except (BrokenPipeError, ConnectionResetError):
                 pass
 
         def library(self, folder):
-            allowed = {'.png', '.jpg', '.jpeg', '.webp', '.mp4', '.mov', '.webm', '.mp3', '.wav', '.m4a'}
+            allowed = MEDIA_EXTENSIONS
             paths = [p for base in ('input', 'assets') for p in (folder/base).rglob('*') if p.is_file() and p.suffix.lower() in allowed]
-            return [{'path': p.relative_to(folder).as_posix(), 'name': p.name, 'type': 'image' if p.suffix.lower() in {'.png', '.jpg', '.jpeg', '.webp'} else 'audio' if p.suffix.lower() in {'.mp3', '.wav', '.m4a'} else 'video'} for p in paths]
+            result = []
+            for p in paths:
+                item = {'path': p.relative_to(folder).as_posix(), 'name': re.sub(r'^[a-f0-9]{12}-', '', p.name) if p.parent == folder/'assets/imported' else p.name, 'type': media_type(p)}
+                if item['type'] == 'video':
+                    key = (str(p), p.stat().st_mtime_ns, p.stat().st_size)
+                    if key not in duration_cache:
+                        from core.adapters.ffmpeg import probe
+                        try:
+                            info = probe(p)
+                            duration_cache[key] = info['duration_seconds'] if info['has_video'] else 0
+                        except (EditorError, ValueError):
+                            duration_cache[key] = 0
+                    item['duration_seconds'] = duration_cache[key]
+                result.append(item)
+            return result
 
         def do_POST(self):
             try:
+                url = urlparse(self.path)
+                if url.path == '/api/upload':
+                    if self.headers.get('Origin') not in (None, f'http://{self.headers.get("Host")}') or self.headers.get('X-AI-Editor') != 'studio':
+                        self.close_connection = True
+                        size = int(self.headers.get('Content-Length', 0))
+                        if 0 < size <= 20 * 1024**2:
+                            self.rfile.read(size)
+                        return self.send_json({'error': 'Yêu cầu phải đến từ editor local.'}, 403)
+                    query = {k: v[0] for k, v in parse_qs(url.query).items()}
+                    size = int(self.headers.get('Content-Length', 0))
+                    if not 0 < size <= MAX_UPLOAD_BYTES:
+                        self.close_connection = True
+                        raise EditorError('File cần có dữ liệu và không vượt quá 10 GB.')
+                    source = query.get('kind') == 'source'
+                    folder = None if source else store.folder(query['job'])
+                    directory = store.root/'.studio/imports' if source else folder/'assets/imported'
+                    # Invalid names/types are rejected before opening a destination file.
+                    self.close_connection = True
+                    target = receive_upload(self.rfile, size, directory, query['name'], video_only=source)
+                    if source:
+                        return self.send_json({'path': str(target)})
+                    return self.send_json({'path': target.relative_to(folder).as_posix(), 'library': self.library(folder)})
+                # Consume bounded request bytes before replying, including rejected requests.
+                # Closing a socket with an unread request body can reset the response on Windows.
+                size = int(self.headers.get('Content-Length', 0))
+                if not 0 < size <= 20 * 1024 * 1024:
+                    self.close_connection = True
+                    raise EditorError('Request cần nhỏ hơn 20MB.')
+                payload = self.rfile.read(size)
                 # No CORS. Same-origin mutation guard blocks web pages from writing local projects.
                 origin = self.headers.get('Origin')
                 expected = f'http://{self.headers.get("Host")}'
@@ -104,11 +179,15 @@ def make_server(port=8765, root=ROOT):
                     return self.send_json({'error': 'Thiếu header editor.'}, 403)
                 if not self.headers.get('Content-Type', '').startswith('application/json'):
                     return self.send_json({'error': 'Chỉ nhận JSON.'}, 415)
-                size = int(self.headers.get('Content-Length', 0))
-                if not 0 < size <= 20 * 1024 * 1024:
-                    raise EditorError('Request cần nhỏ hơn 20MB.')
-                body = json.loads(self.rfile.read(size))
+                body = json.loads(payload)
+                if not isinstance(body, dict):
+                    raise EditorError('Request cần là JSON object.')
                 path = urlparse(self.path).path
+                if path == '/api/discard-upload':
+                    target = Path(body['path']).resolve()
+                    if target.parent == (store.root/'.studio/imports').resolve():
+                        target.unlink(missing_ok=True)
+                    return self.send_json({'ok': True})
                 if path == '/api/project':
                     state = store.save(body['job'], body['state'], body['expected_version'])
                     return self.send_json(state)
@@ -125,17 +204,32 @@ def make_server(port=8765, root=ROOT):
                     if store.root.resolve() != ROOT.resolve():
                         raise EditorError('Import bị tắt trong workspace test.')
                     folder = create_job(body['job'], body['video'], body['profile'], body.get('brief', 'Tạo từ editor local'))
+                    staged = Path(body['video']).resolve()
+                    if staged.parent == (store.root/'.studio/imports').resolve():
+                        staged.unlink(missing_ok=True)
                     return self.send_json({'job': folder.name})
                 if path == '/api/asset':
                     folder = store.folder(body['job'])
-                    source = Path(body['path']).resolve()
-                    if not source.is_file() or source.suffix.lower() not in {'.png', '.jpg', '.jpeg', '.webp', '.mp4', '.mov', '.webm', '.mp3', '.wav', '.m4a'}:
-                        raise EditorError('Chọn file ảnh/video/nhạc có thật trên máy.')
-                    import uuid
-                    target = folder/'assets/imported'/(uuid.uuid4().hex[:12]+source.suffix.lower())
-                    target.parent.mkdir(exist_ok=True)
-                    shutil.copy2(source, target)
-                    return self.send_json({'path': target.relative_to(folder).as_posix(), 'library': self.library(folder)})
+                    paths = body.get('paths', [body.get('path')])
+                    if not isinstance(paths, list) or not 1 <= len(paths) <= 100 or not all(isinstance(p, str) for p in paths):
+                        raise EditorError('Chọn từ 1 đến 100 file media.')
+                    sources = [Path(p).resolve() for p in paths]
+                    for source in sources:
+                        if not source.is_file():
+                            raise EditorError('Không tìm thấy file: '+source.name)
+                        media_type(source)
+                    targets = []
+                    try:
+                        for source in sources:
+                            target = folder/'assets/imported'/(uuid.uuid4().hex[:12]+'-'+source.name)
+                            target.parent.mkdir(parents=True, exist_ok=True)
+                            targets.append(target)
+                            shutil.copy2(source, target)
+                    except OSError:
+                        for target in targets:
+                            target.unlink(missing_ok=True)
+                        raise
+                    return self.send_json({'path': targets[0].relative_to(folder).as_posix(), 'paths': [p.relative_to(folder).as_posix() for p in targets], 'library': self.library(folder)})
                 return self.send_json({'error': 'API không tồn tại.'}, 404)
             except (EditorError, OSError, ValueError, KeyError, TypeError) as error:
                 self.send_json({'error': str(error)}, 409)

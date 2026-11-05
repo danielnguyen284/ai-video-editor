@@ -28,11 +28,13 @@ import {
   CornersOut,
 } from "@phosphor-icons/react";
 import { StudioPlayer } from "./StudioPlayer";
+import { CaptionPanel } from "./CaptionPanel";
 import {
   clone,
   mediaUrl,
   reflow,
   uid,
+  resumeSession,
   type Project,
   type View,
   type Clip,
@@ -79,6 +81,13 @@ function App() {
     [playing, setPlaying] = useState(false),
     [zoom, setZoom] = useState(12),
     [tab, setTab] = useState("media");
+  const [initialFrame, setInitialFrame] = useState(0),
+    [pickerBusy, setPickerBusy] = useState(false);
+  const sourceInput = useRef<HTMLInputElement>(null),
+    mediaInput = useRef<HTMLInputElement>(null);
+  const sessionKey = useRef(""),
+    session = useRef<any>(null),
+    lastSessionWritten = useRef("");
   const [dirty, setDirty] = useState(false),
     [saving, setSaving] = useState(false),
     [error, setError] = useState(""),
@@ -106,11 +115,60 @@ function App() {
       .then(setJobs)
       .catch((e) => setError(e.message));
   useEffect(() => {
-    reloadJobs();
-    api("profiles").then(setProfiles);
+    Promise.all([api("jobs"), api("profiles"), api("health")])
+      .then(([jobs, profiles, health]) => {
+        setJobs(jobs);
+        setProfiles(profiles);
+        sessionKey.current = "ai-editor-session:" + health.workspace;
+        let previous = null;
+        try {
+          previous = resumeSession(
+            localStorage.getItem(sessionKey.current),
+            jobs,
+          );
+        } catch {
+          /* browser storage may be disabled */
+        }
+        if (previous) {
+          setTab(previous.tab);
+          setZoom(previous.zoom);
+          void open(previous.job, previous.frame);
+        }
+      })
+      .catch((e) => setError(e.message));
   }, []);
-  const open = async (job: string) => {
+  useEffect(() => {
+    const persist = (force = false) => {
+      if (sessionKey.current && session.current) {
+        try {
+          const value = JSON.stringify(session.current);
+          if (
+            value === lastSessionWritten.current ||
+            (!force && document.visibilityState !== "visible")
+          )
+            return;
+          localStorage.setItem(sessionKey.current, value);
+          lastSessionWritten.current = value;
+        } catch {
+          /* draft remains saved on disk */
+        }
+      }
+    };
+    const timer = setInterval(() => persist(), 500);
+    const pagehide = () => persist(true);
+    window.addEventListener("pagehide", pagehide);
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener("pagehide", pagehide);
+    };
+  }, []);
+  useEffect(() => {
+    if (project) session.current = { job: project.job_id, frame, zoom, tab };
+  }, [project?.job_id, frame, zoom, tab]);
+  const open = async (job: string, resumeFrame = 0) => {
     try {
+      if (!job) return;
+      if (pending.current) await pending.current;
       if (
         dirty &&
         !window.confirm("Draft chưa lưu. Bỏ thay đổi chưa lưu để mở job khác?")
@@ -126,12 +184,66 @@ function App() {
       setProject(state);
       setView({ media, source, library, setup, durations });
       setSelected(null);
-      setFrame(0);
+      const start = Math.max(
+        0,
+        Math.min(state.plan.duration_frames - 1, resumeFrame),
+      );
+      setInitialFrame(start);
+      setFrame(start);
       setDirty(false);
       setError("");
       setNotice("Đang xem draft • bản nguồn " + state.base_revision);
     } catch (e: any) {
       setError(e.message);
+    }
+  };
+  const upload = async (files: FileList | null, kind: "media" | "video") => {
+    const selectedFiles = Array.from(files ?? []);
+    if (!selectedFiles.length) return;
+    if (selectedFiles.length > 100) {
+      setError("Chọn tối đa 100 file mỗi lần.");
+      return;
+    }
+    setPickerBusy(true);
+    setError("");
+    const job = current.current?.job_id;
+    let imported = 0;
+    try {
+      for (const file of selectedFiles) {
+        const params = new URLSearchParams({
+          name: file.name,
+          ...(kind === "video" ? { kind: "source" } : { job: job! }),
+        });
+        const response = await fetch("/api/upload?" + params, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/octet-stream",
+            "X-AI-Editor": "studio",
+          },
+          body: file,
+        });
+        const data = await response.json();
+        if (!response.ok)
+          throw new Error(data.error ?? `Không nhập được ${file.name}`);
+        imported++;
+        if (kind === "video") {
+          if (newJob.video) await api("discard-upload", { path: newJob.video });
+          setNewJob((s) => ({ ...s, video: data.path }));
+        } else if (current.current?.job_id === job) {
+          setView((v) => (v ? { ...v, library: data.library } : v));
+        }
+      }
+      setNotice(
+        `Đã nhập ${imported} file trên máy. Bấm thumbnail trong thư viện để thêm vào timeline.`,
+      );
+    } catch (e: any) {
+      setError(
+        `Đã nhập ${imported}/${selectedFiles.length} file. ${e.message}`,
+      );
+    } finally {
+      setPickerBusy(false);
+      if (sourceInput.current) sourceInput.current.value = "";
+      if (mediaInput.current) mediaInput.current.value = "";
     }
   };
   const change = useCallback(
@@ -321,7 +433,10 @@ function App() {
         return reflow(s, clips);
       }
       const array = selected.kind === "layer" ? s.plan.overlays : s.cues;
-      Object.assign(array.find((i) => i.id === selected.id)!, data);
+      Object.assign(
+        array.find((i) => i.id === selected.id)!,
+        data,
+      );
     });
   const remove = () => {
     if (!selected) return;
@@ -410,6 +525,14 @@ function App() {
   };
   const addLayer = (asset: View["library"][number]) => {
     if (!project) return;
+    if (
+      asset.type === "video" &&
+      asset.duration_seconds !== undefined &&
+      asset.duration_seconds * fps < 1
+    ) {
+      setError("Không đọc được video này hoặc video ngắn hơn một frame.");
+      return;
+    }
     if (asset.type === "audio") {
       change((s) => {
         s.plan.audio.music = { path: asset.path, gain: 0.08, ducking: true };
@@ -423,7 +546,10 @@ function App() {
         type: asset.type === "image" ? "image" : "video",
         path: asset.path,
         timeline_in_frame: frame,
-        timeline_out_frame: Math.min(s.plan.duration_frames, frame + fps * 3),
+        timeline_out_frame: Math.min(
+          s.plan.duration_frames,
+          frame + Math.floor(fps * Math.min(3, asset.duration_seconds ?? 3)),
+        ),
         x: Math.round(s.plan.export.width * 0.1),
         y: Math.round(s.plan.export.height * 0.2),
         width: Math.round(s.plan.export.width * 0.8),
@@ -784,6 +910,23 @@ function App() {
   };
   return (
     <main className="studio">
+      <input
+        hidden
+        type="file"
+        ref={sourceInput}
+        aria-label="File video nguồn"
+        accept=".mp4,.mov,.webm,.mkv,.avi,.m4v"
+        onChange={(e) => upload(e.target.files, "video")}
+      />
+      <input
+        hidden
+        type="file"
+        ref={mediaInput}
+        aria-label="File media thư viện"
+        multiple
+        accept=".mp4,.mov,.webm,.mkv,.avi,.m4v,.png,.jpg,.jpeg,.webp,.mp3,.wav,.m4a,.aac,.flac,.ogg"
+        onChange={(e) => upload(e.target.files, "media")}
+      />
       <header className="topbar">
         <a className="brand" href="/" aria-label="AI Editor Studio">
           <span className="brand-mark">
@@ -797,6 +940,7 @@ function App() {
           <FolderOpen size={18} />
           <select
             aria-label="Chọn project"
+            disabled={pickerBusy}
             value={project?.job_id ?? ""}
             onChange={(e) => open(e.target.value)}
           >
@@ -914,13 +1058,27 @@ function App() {
           {task.message}
         </div>
       )}
+      {pickerBusy && (
+        <div className="banner progress" role="status">
+          <span className="spinner" />
+          Đang nhập file vào Studio trên máy…
+        </div>
+      )}
       <section className="workspace">
         <aside className="library">
           <div className="panel-head">
             <span>TÀI NGUYÊN</span>
             <button
-              title="Nhập tài nguyên từ đường dẫn trên máy"
-              disabled={!project}
+              title="Thêm video, ảnh hoặc nhạc"
+              aria-label="Thêm video, ảnh hoặc nhạc"
+              disabled={!project || pickerBusy}
+              onClick={() => mediaInput.current?.click()}
+            >
+              <Plus size={17} />
+            </button>
+            <button
+              title="Nhập bằng đường dẫn thủ công"
+              disabled={!project || pickerBusy}
               onClick={async () => {
                 const path = window.prompt(
                   "Đường dẫn đầy đủ đến ảnh, video hoặc nhạc trên máy:",
@@ -937,7 +1095,7 @@ function App() {
                   }
               }}
             >
-              <Plus size={17} />
+              <FolderOpen size={17} />
             </button>
           </div>
           <nav className="library-tabs">
@@ -953,7 +1111,7 @@ function App() {
               onClick={() => setTab("text")}
             >
               <TextT size={17} />
-              Chữ
+              Lời thoại
             </button>
             <button
               className={tab === "locks" ? "active" : ""}
@@ -983,13 +1141,19 @@ function App() {
                     onClick={() => addLayer(a)}
                   >
                     <span className={"asset-icon " + a.type}>
-                      {a.type === "image" ? (
-                        <ImageSquare size={22} />
-                      ) : a.type === "audio" ? (
+                      {a.type === "audio" ? (
                         <Waveform size={22} />
                       ) : (
                         <FilmStrip size={22} />
                       )}
+                      <img
+                        loading="lazy"
+                        alt={`Thumbnail ${a.name}`}
+                        src={`/thumbnail?job=${encodeURIComponent(project.job_id)}&path=${encodeURIComponent(a.path)}`}
+                        onError={(e) => {
+                          e.currentTarget.style.display = "none";
+                        }}
+                      />
                     </span>
                     <span>
                       <strong>
@@ -1020,34 +1184,33 @@ function App() {
             </>
           ) : tab === "text" ? (
             <>
-              <button className="wide" onClick={addCue}>
-                <Plus size={18} />
-                Thêm caption tại playhead
-              </button>
-              <label className="toggle">
-                <input
-                  type="checkbox"
-                  checked={p!.captions.enabled}
-                  onChange={(e) =>
-                    change((s) => {
-                      s.plan.captions.enabled = e.target.checked;
-                    })
-                  }
-                />
-                Hiện caption
-              </label>
-              <div className="cue-list">
-                {project.cues.map((c) => (
-                  <button
-                    key={c.id}
-                    className={selected?.id === c.id ? "active" : ""}
-                    onClick={() => selectItem("cue", c.id, c.timeline_in_frame)}
-                  >
-                    <small>{tc(c.timeline_in_frame, fps)}</small>
-                    <span>{c.text}</span>
-                  </button>
-                ))}
+              <div className="caption-toolbar">
+                <button aria-label="Thêm caption tại playhead" onClick={addCue}>
+                  <Plus size={18} />
+                  Thêm câu
+                </button>
+                <label className="toggle">
+                  <input
+                    type="checkbox"
+                    checked={p!.captions.enabled}
+                    onChange={(e) =>
+                      change((s) => {
+                        s.plan.captions.enabled = e.target.checked;
+                      })
+                    }
+                  />
+                  Hiện caption
+                </label>
               </div>
+              <CaptionPanel
+                key={project.job_id}
+                project={project}
+                selectedId={selected?.kind === "cue" ? selected.id : undefined}
+                frame={frame}
+                change={change}
+                select={(id, start) => selectItem("cue", id, start)}
+                notify={setNotice}
+              />
             </>
           ) : (
             <>
@@ -1131,6 +1294,7 @@ function App() {
                   playerRef={player}
                   project={project}
                   view={view}
+                  initialFrame={initialFrame}
                 />
                 {selected?.kind === "layer" &&
                   item &&
@@ -1978,7 +2142,22 @@ function App() {
                   ? "Tạo project từ video"
                   : "Xuất bản dựng đang hiển thị"}
               </h2>
-              <button onClick={() => setModal(null)}>Đóng</button>
+              <button
+                disabled={pickerBusy}
+                onClick={async () => {
+                  if (modal === "import" && newJob.video) {
+                    try {
+                      await api("discard-upload", { path: newJob.video });
+                    } catch {
+                      /* cleanup can be retried */
+                    }
+                    setNewJob((s) => ({ ...s, video: "" }));
+                  }
+                  setModal(null);
+                }}
+              >
+                Đóng
+              </button>
             </header>
             {modal === "import" ? (
               <>
@@ -1996,6 +2175,15 @@ function App() {
                   />
                 </Field>
                 <Field label="Đường dẫn video trên máy">
+                  <button
+                    aria-label="Chọn video từ máy"
+                    className="wide choose-video"
+                    disabled={pickerBusy}
+                    onClick={() => sourceInput.current?.click()}
+                  >
+                    <FolderOpen size={18} />
+                    Chọn video từ máy…
+                  </button>
                   <input
                     placeholder="C:\Users\admin\Videos\raw.mp4"
                     value={newJob.video}
@@ -2029,10 +2217,16 @@ function App() {
                 </Field>
                 <button
                   className="primary wide"
-                  disabled={!newJob.job || !newJob.video || !newJob.profile}
+                  disabled={
+                    pickerBusy ||
+                    !newJob.job ||
+                    !newJob.video ||
+                    !newJob.profile
+                  }
                   onClick={async () => {
                     try {
                       await api("import", newJob);
+                      setNewJob((s) => ({ ...s, video: "" }));
                       await reloadJobs();
                       setModal(null);
                       await open(newJob.job);

@@ -96,7 +96,12 @@ export type View = {
     has_audio: boolean;
   };
   source: string;
-  library: { path: string; name: string; type: string }[];
+  library: {
+    path: string;
+    name: string;
+    type: string;
+    duration_seconds?: number;
+  }[];
   setup: any;
   durations?: Record<string, number>;
 };
@@ -105,6 +110,74 @@ export const mediaUrl = (job: string, path: string, proxy = false) =>
 export const uid = (prefix: string) =>
   `${prefix}-${crypto.randomUUID().slice(0, 8)}`;
 export const clone = <T>(value: T): T => structuredClone(value);
+
+export const cueLocked = (project: Project, cue: Cue) =>
+  project.locks.some(
+    (lock) =>
+      lock.start < cue.timeline_out_frame && cue.timeline_in_frame < lock.end,
+  );
+
+export function captionPattern(query: string, matchCase = false) {
+  return query
+    ? new RegExp(
+        query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
+        matchCase ? "gu" : "giu",
+      )
+    : null;
+}
+
+export function replaceCaptions(
+  project: Project,
+  query: string,
+  replacement: string,
+  matchCase = false,
+  cueId?: string,
+) {
+  const next = clone(project);
+  let count = 0,
+    lockedCount = 0,
+    emptyCount = 0;
+  const pattern = captionPattern(query, matchCase);
+  if (!pattern) return { project: next, count, lockedCount, emptyCount };
+  for (const cue of next.cues) {
+    if (cueId && cue.id !== cueId) continue;
+    // A callback preserves literal replacement strings such as "$&".
+    const changed = cue.text.replace(pattern, () => replacement);
+    if (changed === cue.text) continue;
+    if (cueLocked(project, cue)) {
+      lockedCount++;
+      continue;
+    }
+    if (!changed.trim()) {
+      emptyCount++;
+      continue;
+    }
+    cue.text = changed;
+    count++;
+  }
+  return { project: next, count, lockedCount, emptyCount };
+}
+
+export function resumeSession(raw: string | null, jobs: { id: string }[]) {
+  try {
+    const value = JSON.parse(raw ?? "null");
+    if (!value || !jobs.some((job) => job.id === value.job)) return null;
+    return {
+      job: value.job as string,
+      frame: Number.isFinite(value.frame)
+        ? Math.max(0, Math.round(value.frame))
+        : 0,
+      tab: ["media", "text", "locks"].includes(value.tab)
+        ? (value.tab as string)
+        : "media",
+      zoom: Number.isFinite(value.zoom)
+        ? Math.max(4, Math.min(100, value.zoom))
+        : 12,
+    };
+  } catch {
+    return null;
+  }
+}
 export function reflow(
   s: Project,
   clips: Clip[],

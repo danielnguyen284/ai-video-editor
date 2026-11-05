@@ -12,7 +12,7 @@ import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
 ROOT_FILES = (
-    "ai_editor.py", "AGENTS.md", "README.md", "HUONG-DAN.html",
+    "ai_editor.py", "launch_editor.pyw", "Open AI Editor.cmd", "AGENTS.md", "README.md", "HUONG-DAN.html",
     "ai-video-editor-project.md", "requirements-stt.txt", "requirements-vision.txt", ".gitignore",
 )
 SOURCE_DIRS = ("core", "skills", "profiles", "scripts", "tests", "editor")

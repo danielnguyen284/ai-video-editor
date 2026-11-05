@@ -13,7 +13,7 @@ from urllib.request import Request, urlopen
 from core.common import ROOT, EditorError, digest, executable, read_json, write_json
 from core.jobs import create_job
 from core.decisions import record_choice
-from core.editor_service import EditorStore, check_render_locks
+from core.editor_service import EditorStore, check_render_locks, canonical_numbers, content_signature, compile_plan
 from core.editor_server import make_server
 
 
@@ -51,7 +51,80 @@ class EditorTests(unittest.TestCase):
             'style': 'style/kinetic-motion', 'domain': 'domain/general',
             'output': {k: state['plan']['export'][k] for k in ('width','height','fps','fit')},
             'footage_analysis': False, 'transcription': False, 'editing': 'Synthetic fixture source order',
-            'captions': False, 'research': 'None, synthetic data', 'visuals': 'Synthetic fixture layers', 'audio': 'Fixture voice only'})
+            'captions': state['plan']['captions']['enabled'], 'research': 'None, synthetic data', 'visuals': 'Synthetic fixture layers', 'audio': 'Fixture voice only'})
+
+    def test_browser_upload_batch_import_thumbnails_and_originals(self):
+        audio = self.base/'nhạc nền.wav'
+        image = self.base/'ảnh mẫu.png'
+        for target, args in ((audio, ['-vn']), (image, ['-frames:v', '1'])):
+            result = subprocess.run([executable('ffmpeg'), '-v', 'error', '-y', '-i', str(self.source), *args, str(target)], capture_output=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+        originals = {p: digest(p) for p in (self.source, audio, image)}
+        server = make_server(0, self.base)
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        base = f'http://127.0.0.1:{server.server_port}'
+        def post(endpoint, data):
+            return json.load(urlopen(Request(base+'/api/'+endpoint, data=json.dumps(data).encode(), headers={'Content-Type':'application/json','X-AI-Editor':'studio'})))
+        try:
+            self.assertFalse((self.folder/'assets/imported').exists())
+            from urllib.parse import urlencode
+            def upload(source, **query):
+                return json.load(urlopen(Request(base+'/api/upload?'+urlencode({'name':source.name, **query}), data=source.read_bytes(), headers={'Content-Type':'application/octet-stream','X-AI-Editor':'studio'})))
+            staged = upload(self.source, kind='source')
+            self.assertEqual(digest(staged['path']), originals[self.source])
+            post('discard-upload', {'path':staged['path']})
+            self.assertFalse(Path(staged['path']).exists())
+            post('discard-upload', {'path':str(self.source)})
+            self.assertTrue(self.source.is_file())
+            paths = [upload(source, job=self.job)['path'] for source in (image, audio, self.source)]
+            imported = {'paths':paths}
+            self.assertEqual(len(imported['paths']), 3)
+            for source, relative in zip((image, audio, self.source), imported['paths']):
+                self.assertEqual(digest(self.folder/relative), originals[source])
+                from urllib.parse import urlencode
+                response = urlopen(base+'/thumbnail?'+urlencode({'job':self.job,'path':relative}))
+                data = response.read()
+                self.assertEqual(response.status, 200)
+                self.assertTrue(data.startswith(b'\x89PNG') or data.startswith(b'\xff\xd8'))
+            thumbs = list((self.folder/'editor/thumbnails').glob('*.jpg'))
+            self.assertEqual(len(thumbs), 2)
+            before = {p.name:p.stat().st_mtime_ns for p in thumbs}
+            urlopen(base+'/thumbnail?'+urlencode({'job':self.job,'path':imported['paths'][1]})).read()
+            self.assertEqual({p.name:p.stat().st_mtime_ns for p in thumbs}, before)
+            with self.assertRaises(HTTPError):
+                post('asset', {'job':self.job,'paths':[str(image),str(self.base/'missing.png')]})
+            self.assertEqual(len(list((self.folder/'assets/imported').iterdir())), 3)
+            with self.assertRaises(HTTPError):
+                urlopen(base+'/thumbnail?'+urlencode({'job':self.job,'path':'../../../README.md'}))
+            with self.assertRaises(HTTPError):
+                urlopen(Request(base+'/api/upload?'+urlencode({'job':self.job,'name':'bad.png'}), data=b'bad', headers={'Content-Type':'application/octet-stream','X-AI-Editor':'studio','Origin':'https://example.com'}))
+            self.assertEqual({p:digest(p) for p in originals}, originals)
+        finally:
+            server.shutdown(); server.server_close()
+
+    def test_caption_corrections_export_with_a_locked_cue_without_touching_transcript(self):
+        state = self.store.load(self.job)
+        state['plan']['captions']['enabled'] = True
+        state['cues'] = [{'id':str(i),'timeline_in_frame':i*30,'timeline_out_frame':(i+1)*30,'text':'HPG giữ' if i == 1 else 'HPG tăng'} for i in range(3)]
+        state = self.store.save(self.job, state, 0)
+        state = self.store.lock(self.job, 35, 60, 'Approved words', 1)
+        transcript = self.folder/'transcript/raw.json'
+        write_json(transcript, {'segments':[], 'note':'Original transcript fixture'}, replace=True)
+        original = digest(transcript)
+        state['cues'][0]['text'] = 'Hòa Phát tăng'
+        state['cues'][2]['text'] = 'Hòa Phát tăng'
+        state = self.store.save(self.job, state, 1)
+        self.select_setup()
+        task = self.store.export(self.job, state['version'])['task']
+        for _ in range(200):
+            result = self.store.tasks[task]
+            if result['status'] != 'running': break
+            time.sleep(.1)
+        self.assertEqual(result['status'], 'complete', result)
+        exported = read_json(self.folder/'revisions'/result['revision']/'edit-plan.json')
+        self.assertEqual([c['text'] for c in exported['captions']['items']], ['Hòa Phát tăng','HPG giữ','Hòa Phát tăng'])
+        self.assertEqual(digest(transcript), original)
+        self.assertEqual(self.store.load(self.job)['locks'], state['locks'])
 
     def test_loading_is_read_only_and_save_preserves_source_revision(self):
         source_hash = digest(self.folder/'revisions/r001/edit-plan.json')
@@ -125,6 +198,46 @@ class EditorTests(unittest.TestCase):
         self.assertEqual(state['cues'][1], unchanged)
         state['cues'][0]['timeline_out_frame'] = 9999
         with self.assertRaises(EditorError): self.store.save(self.job, state, 2)
+
+    def test_browser_numeric_round_trip_preserves_new_and_legacy_locks(self):
+        state = self.store.load(self.job)
+        state['plan']['captions']['enabled'] = True
+        state['cues'] = [{'id':'first','timeline_in_frame':0,'timeline_out_frame':30,'text':'Một'}, {'id':'locked','timeline_in_frame':30,'timeline_out_frame':60,'text':'Hai'}]
+        state = self.store.save(self.job,state,0)
+        state = self.store.lock(self.job,30,60,'Approved in Python',1)
+        # Simulate a lock written by the previous release without changing its
+        # approved content. This is only synthetic fixture data.
+        locks = read_json(self.folder/'editor/locks.json')
+        locks[0]['signature'] = content_signature(self.folder,state['plan'],state['cues'],state['motions'],30,60)
+        write_json(self.folder/'editor/locks.json',locks,replace=True)
+        original = digest(self.folder/'editor/locks.json')
+        candidate = canonical_numbers(state)
+        candidate['cues'][0]['text'] = 'Sửa ngoài khóa'
+        saved = self.store.save(self.job,candidate,1)
+        # A second save must find the original approved history, even though
+        # the current draft now has JavaScript's numeric spelling.
+        candidate = deepcopy(saved); candidate['cues'][0]['text'] = 'Sửa lần nữa'
+        saved = EditorStore(self.base).save(self.job,candidate,2)
+        self.assertEqual(digest(self.folder/'editor/locks.json'),original)
+        check_render_locks(self.folder, compile_plan(saved))
+        for mutation in ('text','gain'):
+            changed=deepcopy(saved)
+            if mutation == 'text': changed['cues'][1]['text'] = 'Không được đổi'
+            else: changed['plan']['audio']['voice_gain'] = .9
+            with self.assertRaisesRegex(EditorError,'khóa'): self.store.save(self.job,changed,3)
+        new = self.store.lock(self.job,0,30,'New canonical lock',3)
+        new = self.store.save(self.job,canonical_numbers(new),3)
+        self.assertEqual(len(new['locks']),2)
+
+    def test_legacy_lock_from_unsaved_revision_is_verified_without_rewriting_approval(self):
+        state = self.store.lock(self.job,0,30,'Original no draft',0)
+        locks = read_json(self.folder/'editor/locks.json')
+        locks[0]['signature'] = content_signature(self.folder,state['plan'],state['cues'],state['motions'],0,30)
+        write_json(self.folder/'editor/locks.json',locks,replace=True)
+        original = digest(self.folder/'editor/locks.json')
+        saved = self.store.save(self.job,canonical_numbers(state),0)
+        self.assertEqual(saved['version'],1)
+        self.assertEqual(digest(self.folder/'editor/locks.json'),original)
 
     def test_export_requires_real_setup_and_preserves_draft_and_revision(self):
         with self.assertRaisesRegex(EditorError, 'thiết lập'):

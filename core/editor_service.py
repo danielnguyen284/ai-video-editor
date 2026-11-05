@@ -55,7 +55,18 @@ def compile_plan(state):
     return plan
 
 
-def content_signature(folder, plan, cues, motions, start, end):
+def canonical_numbers(value):
+    """JSON/browser round trips preserve numeric values but not 1.0 versus 1."""
+    if isinstance(value, float) and value.is_integer():
+        return int(value)
+    if isinstance(value, list):
+        return [canonical_numbers(item) for item in value]
+    if isinstance(value, dict):
+        return {key: canonical_numbers(item) for key, item in value.items()}
+    return value
+
+
+def content_fingerprints(folder, plan, cues, motions, start, end):
     """Fingerprint exactly what can affect this fixed output interval, on every track."""
     def asset(path):
         resolved = within(folder, path)
@@ -90,19 +101,46 @@ def content_signature(folder, plan, cues, motions, start, end):
             if a < b:
                 captions.append({'start': a, 'end': b, 'text': cue['text']})
     job = read_json(folder / 'job.json')
-    return fingerprint({'interval': [start, end], 'available': plan['duration_frames'] >= end,
+    content = {'interval': [start, end], 'available': plan['duration_frames'] >= end,
                         'source': asset(job['assets'][0]['path']), 'clips': clips, 'overlays': overlays, 'captions': captions,
                         'export': plan['export'], 'audio': plan['audio'],
                         'music_sha256': asset(plan['audio']['music']['path']) if plan['audio'].get('music') else None,
-                        'caption_style': {k: v for k, v in plan['captions'].items() if k not in ('items', 'transcript_ref')}})
+                        'caption_style': {k: v for k, v in plan['captions'].items() if k not in ('items', 'transcript_ref')}}
+    return fingerprint(content), fingerprint(canonical_numbers(content))
+
+
+def content_signature(folder, plan, cues, motions, start, end, *, canonical=False):
+    return content_fingerprints(folder, plan, cues, motions, start, end)[1 if canonical else 0]
 
 
 def check_locks(folder, state):
     path = folder / 'editor/locks.json'
     locks = read_json(path) if path.is_file() else []
     for lock in locks:
-        actual = content_signature(folder, state['plan'], state['cues'], state['motions'], lock['start'], lock['end'])
-        if actual != lock['signature']:
+        actual, normalized = content_fingerprints(folder, state['plan'], state['cues'], state['motions'], lock['start'], lock['end'])
+        if lock['signature'] in (actual, normalized):
+            continue
+        # Older locks hashed Python's numeric spelling. Recover their approved
+        # content only from a snapshot whose ORIGINAL hash matches the lock.
+        # Do not rewrite a lock or trust the candidate as an approval reference.
+        def approved_states():
+            references = [folder/'editor/project.json', *sorted((folder/'editor/history').glob('*.json'), reverse=True)]
+            for reference in references:
+                if reference.is_file(): yield read_json(reference)
+            # Old releases could lock an untouched revision before its first save.
+            revision = state.get('base_revision', f"r{state['plan']['revision']:03d}")
+            source = folder/'revisions'/revision/'edit-plan.json'
+            if source.is_file():
+                plan = read_json(source)
+                yield {'plan': plan, 'cues': cues_for(folder, plan), 'motions': motion_for(folder, plan)}
+        matched = False
+        for approved in approved_states():
+            args = (folder, approved['plan'], approved['cues'], approved['motions'], lock['start'], lock['end'])
+            original, canonical = content_fingerprints(*args)
+            if original == lock['signature']:
+                matched = canonical == normalized
+                break
+        if not matched:
             raise EditorError(f"Vùng đã khóa ‘{lock['label']}’ sẽ thay đổi. Mở khóa vùng này trước khi sửa.")
 
 
@@ -221,7 +259,7 @@ class EditorStore:
                 raise EditorError('Vùng khóa phải nằm trong timeline.')
             folder = self.folder(job)
             lock = {'id': uuid.uuid4().hex, 'start': start, 'end': end, 'label': str(label)[:120] or 'Vùng đã duyệt',
-                    'signature': content_signature(folder, state['plan'], state['cues'], state['motions'], start, end), 'created_at': timestamp()}
+                    'signature': content_signature(folder, state['plan'], state['cues'], state['motions'], start, end, canonical=True), 'created_at': timestamp()}
             atomic_json(folder/'editor/locks.json', [*state['locks'], lock])
             return self.load(job)
 
