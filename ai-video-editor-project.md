@@ -16,7 +16,7 @@ Ví dụ:
 
 **TikTok là nền tảng dựng chủ yếu; tài chính tiếng Việt là profile triển khai đầu tiên.** Hướng dẫn nền tảng nằm ở `core/platforms/tiktok.md`: mở ý sớm, cắt theo nội dung, caption tránh giao diện và chữ sẵn, đưa phương án cụ thể để người dùng chọn. Bộ khung lõi phải dùng lại được khi chuyển sang công nghệ, giáo dục, kinh doanh hoặc style khác.
 
-Tài liệu này mô tả kiến trúc và lộ trình. Bộ khung Python, role, CLI FFmpeg, layer ảnh/video, phân tích footage và editor local React + Remotion Player đã có code. Thư viện hiện có bốn style (premium-explainer, visual-keyword, talking-head-pro, kinetic-motion), hai domain (finance, general) và bốn template Remotion (MetricCard, BarChart, LowerThird, KineticScene). Xem `README.md`, `core/visual-editor.md`, `core/schemas/edit-plan.md` và `core/schemas/visuals-and-footage.md` để biết cách dùng/giới hạn. Xuất MP4 cuối vẫn encode timeline; chỉ motion asset được cache, chưa có smart-render từng đoạn.
+Tài liệu này mô tả kiến trúc và lộ trình. Bộ khung Python, role, CLI FFmpeg, layer ảnh/video, phân tích footage và editor local React + Remotion Player đã có code. Thư viện hiện có bốn style (premium-explainer, visual-keyword, talking-head-pro, kinetic-motion), hai domain (finance, general) và năm template Remotion (MetricCard, BarChart, LowerThird, KineticScene, Keyword). Xem `README.md`, `core/visual-editor.md`, `core/schemas/edit-plan.md` và `core/schemas/visuals-and-footage.md` để biết cách dùng/giới hạn. Xuất MP4 cuối vẫn encode timeline; chỉ motion asset được cache, chưa có smart-render từng đoạn.
 
 ---
 
@@ -544,7 +544,7 @@ ai-editor/
 
 ## 17. Lộ trình triển khai
 
-Đã có role/skill/profile snapshot và CLI tạo job/phiên âm/revision/lựa chọn/render. FFmpeg hỗ trợ cắt nối một source ở tốc độ 1x, crop nguồn cố định theo clip, pad/crop đầu ra, caption, layer ảnh/logo/B-roll, voice gain và nhạc nền/ducking. Remotion render MetricCard, BarChart, LowerThird và KineticScene thành asset alpha; KineticScene có thể giữ nền sáng/tối hoặc trong suốt. OpenCV xuất phân tích footage và có connector Ollama cho ngữ nghĩa. Chọn cut và áp dụng feedback do agent thực hiện theo lựa chọn của người dùng.
+Đã có role/skill/profile snapshot và CLI tạo job/phiên âm/revision/lựa chọn/render. FFmpeg hỗ trợ cắt nối một source ở tốc độ 1x, crop nguồn cố định theo clip, pad/crop đầu ra, caption, layer ảnh/logo/B-roll, voice gain và nhạc nền/ducking. Remotion render MetricCard, BarChart, LowerThird, Keyword và KineticScene thành asset alpha; KineticScene có thể giữ nền sáng/tối hoặc trong suốt. OpenCV xuất phân tích footage và có connector Ollama cho ngữ nghĩa. Chọn cut và áp dụng feedback do agent thực hiện theo lựa chọn của người dùng.
 
 Theo yêu cầu triển khai trước khi thử video thật, phase 2 (visual layers), phase 3 (template Remotion) và phase 4 (phân tích footage/connector vision) đã có code. Bổ sung ngày 27/10/2026: hai style mới tự viết từ demo công khai, domain general, profile tương ứng và template KineticScene cho typography/thẻ/progress; nguồn và phạm vi học nằm trong references của từng skill. Test dùng media tổng hợp; API Ollama dùng server giả lập, chưa chạy model vision thật. Video thật, model STT/vision và các tổ hợp nội dung thực tế là bước kiểm chứng tiếp theo. Animated punch zoom, crop liên tục theo mặt, đổi tốc độ, SFX theo timeline và animation tùy ý vẫn chưa được triển khai.
 

@@ -16,7 +16,7 @@ if (process.argv[2] === '--doctor') {
   const inputProps = JSON.parse(fs.readFileSync(requestFile, 'utf8').replace(/^\uFEFF/, ''));
   if (!browserExecutable) await ensureBrowser();
   console.log('Bundling Remotion composition...');
-  const serveUrl = await bundle({entryPoint: path.join(root, 'src/index.tsx'), outDir: path.join(root, '.cache/bundle'), enableCaching: true});
+  const serveUrl = await bundle({entryPoint: path.join(root, 'src/index.tsx'), publicDir: path.join(root, 'public'), outDir: path.join(root, '.cache/bundle'), enableCaching: true});
   console.log('Selecting composition with browser:', browserExecutable ?? 'headless-shell');
   const composition = await selectComposition({serveUrl, id: 'MotionAsset', inputProps, browserExecutable});
   console.log('Rendering transparent ProRes asset...');

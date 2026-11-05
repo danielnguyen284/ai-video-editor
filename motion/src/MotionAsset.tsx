@@ -1,10 +1,11 @@
 import React from 'react';
 import {AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig} from 'remotion';
 import {KineticScene, type KineticContent} from './KineticScene';
+import {Keyword, type KeywordContent} from './Keyword';
 
 type Bar = {label: string; value: number};
 type Content = {title: string; value?: string; subtitle?: string; source?: string; unit?: string; accent?: string; data?: Bar[]} & Partial<KineticContent>;
-export type MotionRequest = {template: 'MetricCard' | 'BarChart' | 'LowerThird' | 'KineticScene'; width: number; height: number; fps: number; duration_frames: number; props: Content};
+export type MotionRequest = {template: 'MetricCard' | 'BarChart' | 'LowerThird' | 'KineticScene' | 'Keyword'; width: number; height: number; fps: number; duration_frames: number; props: Content & Partial<KeywordContent>};
 const initial: MotionRequest = {template: 'MetricCard', width: 720, height: 400, fps: 30, duration_frames: 90, props: {title: 'Metric', value: '42', subtitle: 'Demo data'}};
 
 const StandardAsset: React.FC<MotionRequest> = ({template, props: content}) => {
@@ -47,6 +48,8 @@ const StandardAsset: React.FC<MotionRequest> = ({template, props: content}) => {
   </AbsoluteFill>;
 };
 
-export const MotionAsset: React.FC<MotionRequest> = (request) => request.template === 'KineticScene'
+export const MotionAsset: React.FC<MotionRequest> = (request) => request.template === 'Keyword'
+  ? <Keyword content={request.props}/>
+  : request.template === 'KineticScene'
   ? <KineticScene content={request.props}/>
   : <StandardAsset {...request}/>;

@@ -1,11 +1,11 @@
 {
   "id": "finance-talking-head-pro-vi",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "language": "vi",
   "skills": {
     "style": {
       "id": "style/talking-head-pro",
-      "version": "1.0.1"
+      "version": "1.0.2"
     },
     "domain": {
       "id": "domain/finance",

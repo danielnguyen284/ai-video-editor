@@ -30,7 +30,8 @@ export type Cue = {
   text: string;
 };
 export type Motion = {
-  template: "KineticScene" | "MetricCard" | "BarChart" | "LowerThird";
+  template:
+    "KineticScene" | "MetricCard" | "BarChart" | "LowerThird" | "Keyword";
   width: number;
   height: number;
   fps: number;
@@ -60,6 +61,7 @@ export type Plan = {
     margin_v: number;
     max_chars: number;
     max_lines: number;
+    outline_width?: number;
     transcript_ref: string;
     items?: any[];
   };

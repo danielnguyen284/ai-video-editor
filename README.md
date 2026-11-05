@@ -17,9 +17,11 @@ Mở [AI Editor Studio trên máy](http://127.0.0.1:8765). Tạo project bằng 
 
 **Sửa và preview không encode MP4.** Chỉ khi bấm Xuất MP4 mới tạo revision và encode video cuối; motion không đổi được tái sử dụng. Chưa có smart-render chỉ encode các đoạn sửa. Preview caption có thể khác ASS đôi chút, ducking chỉ áp khi xuất. [Cách dùng, giới hạn và workflow AI ↔ editor](core/visual-editor.md).
 
+**Chữ bám lời nói:** template `Keyword` là chữ thuần trong suốt, có mốc hiện riêng cho dòng nhấn và fade/slide nhẹ. AI map word timestamps sang timeline trước khi tạo asset; editor không tự đồng bộ lời nói. Font **Be Vietnam Pro** Regular/Bold kèm giấy phép OFL nằm trong project, dùng cùng file cho keyword, caption chọn font này và preview/export; không cần cài font vào Windows. KineticScene vẫn có bố cục thẻ riêng. [Contract chữ và motion](core/schemas/visuals-and-footage.md).
+
 **Ưu tiên TikTok:** agent gợi ý khung dọc 9:16, mở ý sớm, nhịp cắt gọn và caption dễ đọc, tránh chữ sẵn và giao diện TikTok. Thời lượng theo nội dung, không ép mọi video dưới 60 giây. Bạn vẫn chọn hook, độ dài, framing, footage/visual và âm thanh trước khi dựng. Hướng dẫn dùng chung ở [core/platforms/tiktok.md](core/platforms/tiktok.md); preference nền tảng lưu tại `preferences/default.json` và chỉ dùng để gợi ý, không tự chọn thay bạn.
 
-**Hiện có thể chạy:** tạo job, snapshot profile/skill, STT tiếng Việt, cắt/đổi thứ tự clip, crop nguồn theo clip, pad/crop đầu ra, caption, lớp ảnh/logo/B-roll, voice gain, nhạc nền/ducking và lưu revision. Remotion tạo MetricCard, BarChart, LowerThird và KineticScene (chữ/thẻ/progress) để ghép bằng FFmpeg; KineticScene có nền sáng/tối hoặc trong suốt. Footage analysis tạo ảnh trích, contact sheet, gợi ý cảnh/khuôn mặt/crop và đoạn nói lặp.
+**Hiện có thể chạy:** tạo job, snapshot profile/skill, STT tiếng Việt, cắt/đổi thứ tự clip, crop nguồn theo clip, pad/crop đầu ra, caption, lớp ảnh/logo/B-roll, voice gain, nhạc nền/ducking và lưu revision. Remotion tạo MetricCard, BarChart, LowerThird, Keyword và KineticScene (chữ/thẻ/progress) để ghép bằng FFmpeg; KineticScene có nền sáng/tối hoặc trong suốt. Footage analysis tạo ảnh trích, contact sheet, gợi ý cảnh/khuôn mặt/crop và đoạn nói lặp.
 
 **Dùng qua agent:** lựa chọn phương án dựng/research được hỏi trong IDE, CLI thực hiện kế hoạch đã chọn. Hiểu ngữ nghĩa hình ảnh có hai cách: AI trong IDE xem ảnh trích hoặc gọi model vision đã cài qua Ollama. CLI không tự hiểu prompt dựng. Animated punch zoom, crop tự di chuyển theo mặt, đổi tốc độ và SFX theo timeline chưa được triển khai.
 

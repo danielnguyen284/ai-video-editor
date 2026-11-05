@@ -4,10 +4,11 @@ import json
 import math
 from pathlib import Path
 import re
+import shutil
 import subprocess
 import textwrap
 
-from core.common import EditorError, digest, executable, read_json, timestamp, within, write_json
+from core.common import EditorError, ROOT, digest, executable, read_json, timestamp, within, write_json
 from core.decisions import require_render_choices
 from core.validation import number, supported_keys
 from core.adapters.visuals import composite_overlays, validate_overlays
@@ -92,7 +93,7 @@ def validate_plan(plan, job, media):
         raise EditorError("duration_frames must equal the end of the last clip.")
     validate_overlays(plan)
     caps = plan["captions"]
-    supported_keys(caps, "enabled transcript_ref font_name font_size margin_v max_chars max_lines items", "captions")
+    supported_keys(caps, "enabled transcript_ref font_name font_size margin_v max_chars max_lines items outline_width", "captions")
     if not isinstance(caps["enabled"], bool):
         raise EditorError("captions.enabled must be true or false.")
     if not re.fullmatch(r"[\w -]+", caps["font_name"]):
@@ -100,6 +101,8 @@ def validate_plan(plan, job, media):
     for key in ("font_size", "max_chars", "max_lines"):
         number(caps[key], f"captions.{key}", 1, integer=True)
     number(caps["margin_v"], "captions.margin_v", integer=True)
+    if 'outline_width' in caps and number(caps['outline_width'], 'captions.outline_width') > 6:
+        raise EditorError('Caption outline_width must be between 0 and 6 pixels.')
     audio = plan["audio"]
     supported_keys(audio, "voice_gain music", "audio")
     number(audio["voice_gain"], "voice_gain")
@@ -174,7 +177,7 @@ WrapStyle: 2
 
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Default,{caps['font_name']},{caps['font_size']},&H00FFFFFF,&H0000FFFF,&H00101010,&H90000000,-1,0,0,0,100,100,0,0,1,3,1,2,70,70,{caps['margin_v']},1
+Style: Default,{caps['font_name']},{caps['font_size']},&H00FFFFFF,&H0000FFFF,&H00101010,&H90000000,-1,0,0,0,100,100,0,0,1,{caps.get('outline_width', 3)},1,2,70,70,{caps['margin_v']},1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
@@ -255,7 +258,19 @@ def render(folder, revision, *, dry_run=False):
         if not items:
             raise EditorError("Captions are enabled but no cues were produced. Disable captions or supply timed text.")
         write_ass(revision / "captions.ass", plan, items)
-        filters.append(f"[{base_video}]subtitles=filename=captions.ass[vout]")
+        fonts_option = ''
+        if caps['font_name'] == 'Be Vietnam Pro':
+            # libass and browser load the exact same bundled TTF files, without
+            # installing fonts on the host. Keep the filter path simple/local.
+            bundled = ROOT/'motion/public/fonts'
+            selected_fonts = revision/'fonts'
+            selected_fonts.mkdir(exist_ok=True)
+            for name in ('BeVietnamPro-Regular.ttf', 'BeVietnamPro-Bold.ttf', 'OFL.txt'):
+                if not (bundled/name).is_file():
+                    raise EditorError('Missing bundled Vietnamese font: '+name)
+                shutil.copy2(bundled/name, selected_fonts/name)
+            fonts_option = ':fontsdir=fonts'
+        filters.append(f"[{base_video}]subtitles=filename=captions.ass{fonts_option}[vout]")
     else:
         filters.append(f"[{base_video}]null[vout]")
     filters.append(f"[cuta]volume={plan['audio']['voice_gain']}[voice]")

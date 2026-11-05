@@ -28,6 +28,7 @@ def selected_files():
         files.extend(path for path in (ROOT/name).rglob("*") if path.is_file() and path.suffix.lower() in EXTENSIONS and not (set(path.relative_to(ROOT).parts) & EXCLUDED_PARTS))
     files.extend(ROOT/"motion"/name for name in MOTION_FILES)
     files.extend(path for path in (ROOT/"motion/src").rglob("*") if path.is_file() and path.suffix.lower() in EXTENSIONS)
+    files.extend(path for path in (ROOT/"motion/public/fonts").glob("*") if path.is_file() and path.suffix.lower() in {'.ttf', '.txt', '.json'})
     for path in files:
         if not path.is_file() or not path.resolve().is_relative_to(ROOT):
             raise ValueError(f"Missing source file or path outside project: {path.name}")

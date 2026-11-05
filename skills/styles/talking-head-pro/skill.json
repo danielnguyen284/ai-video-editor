@@ -1,6 +1,6 @@
 {
   "id": "style/talking-head-pro",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "kind": "style",
   "roles": [
     "editor",
@@ -17,11 +17,12 @@
   ],
   "defaults": {
     "captions": {
-      "font_name": "Arial",
+      "font_name": "Be Vietnam Pro",
       "font_size": 50,
       "margin_v": 320,
       "max_chars": 28,
-      "max_lines": 2
+      "max_lines": 2,
+      "outline_width": 2
     },
     "audio": {
       "voice_gain": 1.0,

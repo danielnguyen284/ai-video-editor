@@ -1,0 +1,23 @@
+{
+  "family": "Be Vietnam Pro",
+  "license": "SIL Open Font License 1.1",
+  "upstream": "https://github.com/bettergui/BeVietnamPro",
+  "source_repository": "https://github.com/google/fonts/tree/main/ofl/bevietnampro",
+  "files": {
+    "BeVietnamPro-Regular.ttf": {
+      "source": "https://raw.githubusercontent.com/google/fonts/main/ofl/bevietnampro/BeVietnamPro-Regular.ttf",
+      "sha256": "cd1ef6e9d7db28ad5cdb88a65ccbe693870e60d340b791f349d248342b4fe4c3",
+      "bytes": 132948
+    },
+    "BeVietnamPro-Bold.ttf": {
+      "source": "https://raw.githubusercontent.com/google/fonts/main/ofl/bevietnampro/BeVietnamPro-Bold.ttf",
+      "sha256": "7f738fe5c43c8872807b20e2d30d42163618de8a4daf7f48a939adac32c16847",
+      "bytes": 140300
+    },
+    "OFL.txt": {
+      "source": "https://raw.githubusercontent.com/google/fonts/main/ofl/bevietnampro/OFL.txt",
+      "sha256": "6b7f8f73609a25ea78c891e34cf37b06f8a676b7ea986e941e43b009110f2a85",
+      "bytes": 4397
+    }
+  }
+}

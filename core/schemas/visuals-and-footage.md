@@ -73,8 +73,24 @@ Available templates:
 | `BarChart` | Required `title`, `data: [{label, value}]` with 1–8 nonnegative finite values; optional `unit`, `source`, `accent` |
 | `LowerThird` | Required `title`; optional `subtitle`, `accent` |
 | `KineticScene` | Portrait typography/cards/progress; see contract below |
+| `Keyword` | Transparent text with a separately timed emphasis line; see below |
 
 `accent` is a six-digit hex color. These are fixed templates; add a component and validator to support a different chart form or animation. They do not verify business data. The selected domain/research workflow supplies evidence for real claims.
+
+### Keyword
+
+`template: "Keyword"` is a text-only alpha layer: no backdrop, panel, card or opaque rectangle. Supply the normal even `width`, `height`, `fps`, `duration_frames` (at least 24 frames). Place it in free space using the overlay rectangle. It always loads bundled **Be Vietnam Pro**; missing font files fail rather than silently selecting a fallback. Color and thin text stroke must be checked against the actual footage.
+
+| Prop | Contract |
+|---|---|
+| `title` | Required 1–48 nonblank characters, one input line; wraps within the layer |
+| `emphasis` | Optional second line, same text limit |
+| `emphasis_frame` | Optional integer ≥0, relative to the asset start, default 0; requires emphasis text |
+| `font_size` | Optional 12–120 px, default min(44, floor(height/3.5)); layer height must fit 1.6× size for title only, 3× with emphasis |
+| `color`, `accent` | Optional six-digit hex; defaults dark blue `#193440` and dark teal `#086559` for bright footage |
+| `enter_frames`, `exit_frames` | Positive integers, defaults 6/5; emphasis_frame + entry + exit must be less than asset duration |
+
+Entry is a small 5px cubic slide/fade without overshoot; exit fades and moves at most 2px. Title starts at asset frame 0; emphasis starts at its selected frame. No panel/transparent/font-name/image props, automatic word alignment, zoom or speech inference. Map source word timing through the clips before composing these requests. Existing KineticScene and LowerThird behavior stays unchanged for old assets. The same component serves Studio preview and export.
 
 ### KineticScene
 

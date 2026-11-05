@@ -20,6 +20,12 @@ Giữ người nói làm trục chính. Caption ngắn theo lời nói giúp the
 
 Caption là lớp đọc phụ: ưu tiên một hoặc hai dòng ngắn, tách theo cụm nghĩa. Mẫu có chữ trắng nhỏ với một số từ màu xanh ngọc; hãy đề xuất cỡ đọc được trên điện thoại thay vì sao chép nguyên cỡ chữ nhỏ của demo. Bộ ASS hiện tại chỉ có style chung cho cue, chưa có highlight động từng từ. Khi chọn nhấn màu riêng, dùng PNG chữ hoặc KineticScene, không hứa ASS có chức năng đó.
 
+Chữ và minh họa bám vào cụm từ đang được nói: lấy word timestamps của transcript, map qua clip sang output frame, đặt mốc vào ở từ mang ý chính và giữ đủ thời gian đọc. Không dùng cùng một nhịp reveal mặc định cho cả đoạn nếu các ý được nói ở thời điểm khác nhau. Với một lớp có hai ý, `Keyword.emphasis_frame` cho dòng nhấn xuất hiện theo từ thứ hai; dùng fade/slide nhẹ, không nhảy bật hoặc đổi bảng toàn màn hình giữa câu. Word timestamps là mốc phiên âm, chưa phải cam kết khớp tuyệt đối với audio.
+
+Khi chọn chữ trên footage, giữ lớp chữ trong suốt, chỉ tô màu chữ/viền mảnh có tương phản với nền thật; không biến màu nhấn thành ô nền hoặc phủ tường, mặt và bối cảnh. `Keyword` là template chữ thuần alpha cho cách này. `KineticScene.transparent` chỉ bỏ backdrop, vẫn có các thẻ; không gọi nó là chữ thuần trong suốt. Infographic phủ kín vẫn là lựa chọn riêng khi được chọn, không tự áp để xử lý chữ cháy sẵn. Nếu user yêu cầu bỏ qua chữ dính trong clip thử, không thêm matte, vá nền hay đổi crop chỉ để xóa nó.
+
+Dùng một font đủ dấu tiếng Việt ở cả caption, keyword và preview/export. Be Vietnam Pro được đóng gói cùng project, nạp local trước khi render chữ; không dựa vào font fallback, không cắt mất dấu bằng line-height thấp hoặc ép chữ dài vào khung nhỏ. Viền caption vừa đủ đọc, không dày đến mức bít nét và dấu. Đổi font/cỡ chữ trong plan hiện tại theo feedback, giữ snapshot bản đã xuất.
+
 Chữ lớn diễn đạt một ý chính, khác vai trò với caption. Dùng vùng trống trên/giữa hình sau khi kiểm tra gương mặt, tay, chữ cháy sẵn và giao diện TikTok. Đừng phủ mắt hoặc đặt hai bản cùng câu ở hai lớp chữ. Với cảnh đồ họa phủ kín, đề xuất ngắt caption trùng ý bằng `captions.items` theo output frame; không tự đổi lựa chọn caption đã chốt.
 
 Ngôn ngữ infographic gợi ý: nền xanh đen, chữ trắng, accent xanh ngọc, thẻ viền mảnh, thanh tiến độ/sơ đồ tầng và ít icon. Màu là đề xuất từ mẫu, không phải nhận diện thương hiệu bắt buộc. Đổi nền sáng là một lựa chọn cho điểm tổng kết. Không lấy logo, gương mặt, screenshot, dữ liệu hoặc CTA bán hàng trong demo làm asset của job.

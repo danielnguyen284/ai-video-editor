@@ -48,7 +48,7 @@ For manually placed output captions, add `captions.items` instead of reading the
 [{"timeline_in_frame":0,"timeline_out_frame":45,"text":"Ví dụ caption"}]
 ```
 
-Style fields: `font_name`, `font_size`, `margin_v`, `max_chars`, `max_lines`. Values are in output pixels/characters, not percentages; adjust for a different resolution. Default font Arial is present on this Windows machine; use an installed Vietnamese-capable font.
+Style fields: `font_name`, `font_size`, `margin_v`, `max_chars`, `max_lines`, optional `outline_width` (finite 0–6 px, export default 3). Values are in output pixels/characters, not percentages; adjust for a different resolution. `Be Vietnam Pro` uses the project's bundled Regular/Bold TTF files for ASS via revision-local `fontsdir` and the same files in Studio. No OS font installation or external font request is needed. Legacy plans using Arial/other installed fonts retain that choice. Browser wrapping/rasterization can still differ slightly from ASS.
 
 Without word timings, a source segment can be mapped only when kept in full. If a cut crosses it, supply word timings or explicit timeline items. Empty enabled captions and overly long manual cues cause actionable execution errors.
 

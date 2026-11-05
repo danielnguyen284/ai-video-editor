@@ -32,3 +32,9 @@ Private evidence is kept in ignored `.test-output/ease-ui/` (including the final
 ## Boundaries
 
 The three usability additions do not implement STT inside Studio, a chat UI, or smart MP4 rendering. Final export still encodes the timeline. Session location uses browser local storage; saved drafts and locks remain on disk. A browser crash before a new job is created can leave its temporary source in `.studio/imports/`; see `core/visual-editor.md`.
+
+## Transparent speech-keyword follow-up — 2026-11-05
+
+After user feedback, added the pure-alpha Keyword template, independent emphasis frame, shared bundled Be Vietnam Pro fonts and adjustable caption outline. **35 Python tests** and **10 frontend tests** passed, plus motion typecheck, skill validation and production editor build. The new media test decodes actual ProRes alpha before/after the emphasis anchor, checks transparent entry/exit/corners, composites it on source footage, and verifies libass selects the bundled bold font without missing-glyph messages. Old template tests still pass.
+
+The source release includes the Regular/Bold TTF files, OFL license and checksums. HTTP checks confirm Studio serves the exact bundled font bytes. The revised project's caption/motion metadata, version and checkpoint are verified through EditorStore and the project API. Current browser UI inspection was unavailable because local browser control was disabled in Work settings; these checks do not claim a new manual UI pass. Private revision media and feedback remain excluded from Git and the source ZIP.

@@ -53,6 +53,19 @@ class KineticSpecTests(unittest.TestCase):
                 if style == "kinetic-motion":
                     self.assertEqual(captions["items"], [])
 
+    def test_keyword_accepts_speech_timing_and_rejects_unrendered_panel_fields(self):
+        spec = {'template':'Keyword','width':480,'height':160,'fps':30,'duration_frames':90,
+                'props':{'title':'VỐN CHỦ','emphasis':'VỐN NỢ','emphasis_frame':42,'font_size':32}}
+        validate_spec(spec)
+        for change in ({'emphasis_frame':85}, {'enter_frames':0}, {'exit_frames':90},
+                       {'font_size':80}, {'title':' '}, {'font_name':'Unknown'},
+                       {'background':'#000000'}, {'transparent':False}, {'color':'bad'},
+                       {'emphasis_frame':True}, {'emphasis_frame':1.5}):
+            candidate = deepcopy(spec); candidate['props'].update(change)
+            with self.subTest(change=change), self.assertRaises(EditorError): validate_spec(candidate)
+        spec['props'].pop('emphasis')
+        with self.assertRaisesRegex(EditorError,'emphasis text'): validate_spec(spec)
+
 
 if __name__ == "__main__":
     unittest.main()

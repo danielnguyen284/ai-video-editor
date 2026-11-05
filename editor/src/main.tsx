@@ -893,6 +893,8 @@ function App() {
           delete content[key];
         else content[key] = value;
       }
+      if (s.motions[selected!.id].template === "Keyword" && !content.emphasis)
+        delete content.emphasis_frame;
     });
   const selectItem = (
     kind: NonNullable<Selection>["kind"],
@@ -1594,12 +1596,16 @@ function App() {
                             <h3>{motion.template} · sửa trực tiếp</h3>
                             {[
                               "title",
-                              ...(motion.template === "KineticScene"
-                                ? ["emphasis", "subtitle"]
-                                : motion.template === "MetricCard"
-                                  ? ["value", "subtitle"]
-                                  : ["subtitle"]),
-                              "source",
+                              ...(motion.template === "Keyword"
+                                ? ["emphasis"]
+                                : motion.template === "KineticScene"
+                                  ? ["emphasis", "subtitle"]
+                                  : motion.template === "MetricCard"
+                                    ? ["value", "subtitle"]
+                                    : ["subtitle"]),
+                              ...(motion.template === "Keyword"
+                                ? []
+                                : ["source"]),
                             ].map((key) => (
                               <Field key={key} label={key}>
                                 <input
@@ -1633,6 +1639,74 @@ function App() {
                                 }
                               />
                             </Field>
+                            {motion.template === "Keyword" && (
+                              <>
+                                <p>
+                                  Chữ trong suốt · Be Vietnam Pro. Mốc nhấn tính
+                                  từ đầu asset, không từ video gốc.
+                                </p>
+                                <Field label="Màu chữ">
+                                  <input
+                                    type="color"
+                                    value={motion.props.color ?? "#193440"}
+                                    onChange={(e) =>
+                                      patchMotion({ color: e.target.value })
+                                    }
+                                  />
+                                </Field>
+                                <Field label="Cỡ keyword">
+                                  <input
+                                    type="number"
+                                    min="12"
+                                    max="120"
+                                    value={motion.props.font_size ?? 36}
+                                    onChange={(e) =>
+                                      patchMotion({ font_size: number(e) })
+                                    }
+                                  />
+                                </Field>
+                                {motion.props.emphasis && (
+                                  <Field label="Mốc hiện dòng nhấn (frame)">
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      value={motion.props.emphasis_frame ?? 0}
+                                      onChange={(e) =>
+                                        patchMotion({
+                                          emphasis_frame: number(e),
+                                        })
+                                      }
+                                    />
+                                  </Field>
+                                )}
+                                <div className="field-grid">
+                                  {["enter_frames", "exit_frames"].map(
+                                    (key) => (
+                                      <Field
+                                        key={key}
+                                        label={
+                                          key === "enter_frames"
+                                            ? "Vào chữ (frame)"
+                                            : "Ra chữ (frame)"
+                                        }
+                                      >
+                                        <input
+                                          type="number"
+                                          min="1"
+                                          value={
+                                            motion.props[key] ??
+                                            (key === "enter_frames" ? 6 : 5)
+                                          }
+                                          onChange={(e) =>
+                                            patchMotion({ [key]: number(e) })
+                                          }
+                                        />
+                                      </Field>
+                                    ),
+                                  )}
+                                </div>
+                              </>
+                            )}
                             {motion.template === "KineticScene" && (
                               <>
                                 <Field label="Nền">

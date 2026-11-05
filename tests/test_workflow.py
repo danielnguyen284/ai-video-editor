@@ -328,6 +328,40 @@ class RenderTests(unittest.TestCase):
         self.assertGreater(self.rgb_at(output, .9, 0, 97)[0], 220)
         self.assertLess(self.rgb_at(output, .9, 80, 142)[0], 210)
 
+    def test_keyword_transparent_alpha_timed_emphasis_and_bundled_caption_font(self):
+        from core.adapters.motion import render_motion
+        if not (ROOT/'motion/node_modules/@remotion/renderer').is_dir():
+            self.skipTest('Optional motion dependencies not installed')
+        folder, revision, plan = self.make_job('speech-keyword')
+        self.select_setup(revision, plan)
+        spec={'template':'Keyword','width':480,'height':160,'fps':30,'duration_frames':90,
+              'props':{'title':'VỐN CHỦ','emphasis':'VỐN NỢ','emphasis_frame':42,'font_size':32}}
+        write_json(folder/'assets/keyword.json',spec)
+        asset=render_motion(folder,revision,'keyword','assets/keyword.json')
+        def alpha(second):
+            rgba=self.run_tool([self.ffmpeg,'-v','error','-ss',str(second),'-i',str(asset),'-frames:v','1','-f','rawvideo','-pix_fmt','rgba','pipe:1'])
+            return rgba[3::4]
+        self.assertEqual(max(alpha(0)),0)
+        self.assertEqual(max(alpha(89/30)),0)
+        before=alpha(1); after=alpha(1.9)
+        self.assertEqual(max(before[480*105:]),0)
+        self.assertGreater(sum(after[480*105:]),10000)
+        self.assertGreater(sum(after),sum(before))
+        self.assertEqual(before[0],0); self.assertEqual(after[-1],0)
+        # A transparent keyword composites without painting a panel over the
+        # synthetic red video; ASS must select our TTF instead of a host fallback.
+        plan['overlays']=[{'id':'keyword','type':'video','path':asset.relative_to(folder).as_posix(),'timeline_in_frame':0,'timeline_out_frame':90,'x':0,'y':80,'width':160,'height':54,'fit':'contain'}]
+        plan['captions'].update(enabled=True,font_name='Be Vietnam Pro',outline_width=1.25,
+            items=[{'timeline_in_frame':30,'timeline_out_frame':60,'text':'Cổ đông và chủ nợ'}])
+        write_json(revision/'edit-plan.json',plan,replace=True)
+        self.select_setup(revision,plan); self.select_plan(revision)
+        output=render(folder,revision)
+        self.assertGreater(self.rgb_at(output,1,0,100)[0],220)
+        log=(revision/'ffmpeg.log').read_text(encoding='utf-8',errors='replace')
+        self.assertIn('BeVietnamPro-Bold',log)
+        self.assertNotIn('Glyph 0x',log)
+        self.assertEqual((revision/'fonts/BeVietnamPro-Bold.ttf').read_bytes(),(ROOT/'motion/public/fonts/BeVietnamPro-Bold.ttf').read_bytes())
+
     def test_kinetic_scene_animates_alpha_progress_and_composites(self):
         from core.adapters.motion import render_motion
         if not (ROOT / "motion/node_modules/@remotion/renderer").is_dir():

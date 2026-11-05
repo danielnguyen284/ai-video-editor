@@ -9,13 +9,16 @@ from core.validation import number, supported_keys
 
 def validate_spec(spec):
     supported_keys(spec, "template width height fps duration_frames props", "motion spec")
-    if spec["template"] not in ("MetricCard", "BarChart", "LowerThird", "KineticScene"):
-        raise EditorError("Motion template must be MetricCard, BarChart, LowerThird or KineticScene.")
+    if spec["template"] not in ("MetricCard", "BarChart", "LowerThird", "KineticScene", "Keyword"):
+        raise EditorError("Motion template must be MetricCard, BarChart, LowerThird, KineticScene or Keyword.")
     for key in ("width", "height", "fps", "duration_frames"):
         number(spec[key], f"motion {key}", 1, integer=True)
     if spec["width"] % 2 or spec["height"] % 2 or spec["duration_frames"] < 24:
         raise EditorError("Motion dimensions must be even and duration at least 24 frames.")
     content = spec["props"]
+    if spec["template"] == "Keyword":
+        validate_keyword(spec, content)
+        return
     if spec["template"] == "KineticScene":
         validate_kinetic(spec, content)
         return
@@ -39,6 +42,29 @@ def validate_spec(spec):
             if not isinstance(item["label"], str) or not item["label"].strip():
                 raise EditorError("Bar labels must be nonempty text.")
             number(item["value"], "bar value")
+
+
+def validate_keyword(spec, content):
+    import re
+    supported_keys(content, 'title emphasis emphasis_frame font_size color accent enter_frames exit_frames', 'Keyword props')
+    for key in ('title', 'emphasis'):
+        if key not in content and key == 'emphasis': continue
+        value = content.get(key)
+        if not isinstance(value, str) or not value.strip() or len(value) > 48 or '\n' in value or '\r' in value:
+            raise EditorError(f'Keyword {key} needs 1-48 characters on one input line.')
+    for key in ('color', 'accent'):
+        if key in content and (not isinstance(content[key], str) or not re.fullmatch(r'#[0-9a-fA-F]{6}', content[key])):
+            raise EditorError(f'Keyword {key} must be a six-digit hex color.')
+    size = number(content.get('font_size', min(44, spec['height']//3.5)), 'Keyword font_size', 12)
+    if size > 120 or size * (3 if content.get('emphasis') else 1.6) > spec['height']:
+        raise EditorError('Keyword font is too large for its layer height.')
+    enter = number(content.get('enter_frames', 6), 'Keyword enter_frames', 1, integer=True)
+    leave = number(content.get('exit_frames', 5), 'Keyword exit_frames', 1, integer=True)
+    emphasis = number(content.get('emphasis_frame', 0), 'Keyword emphasis_frame', integer=True)
+    if 'emphasis_frame' in content and not content.get('emphasis'):
+        raise EditorError('Keyword emphasis_frame needs emphasis text.')
+    if emphasis + enter + leave >= spec['duration_frames']:
+        raise EditorError('Keyword needs enough frames for entry, emphasis and exit.')
 
 
 def validate_kinetic(spec, content):

@@ -9,6 +9,7 @@ import {
   useCurrentFrame,
 } from "remotion";
 import { MotionAsset, type MotionRequest } from "../../motion/src/MotionAsset";
+import { VietnameseFont } from "../../motion/src/VietnameseFont";
 import { mediaUrl, type Project, type View } from "./model";
 
 function MotionView({
@@ -198,29 +199,36 @@ export const Preview: React.FC<{ project: Project; view: View }> = ({
           .filter(
             (c) => c.timeline_in_frame <= frame && frame < c.timeline_out_frame,
           )
-          .map((c) => (
-            <div
-              key={c.id}
-              style={{
-                position: "absolute",
-                left: 70,
-                right: 70,
-                bottom: p.captions.margin_v,
-                textAlign: "center",
-                fontFamily: p.captions.font_name,
-                fontSize: p.captions.font_size,
-                fontWeight: 700,
-                lineHeight: 1.16,
-                color: "#fff",
-                whiteSpace: "pre-wrap",
-                WebkitTextStroke: "1.5px #101010",
-                paintOrder: "stroke fill",
-                textShadow: "1px 1px 1px #000",
-              }}
-            >
-              {wrap(c.text, p.captions.max_chars)}
-            </div>
-          ))}
+          .map((c) => {
+            const caption = (
+              <div
+                key={c.id}
+                style={{
+                  position: "absolute",
+                  left: 70,
+                  right: 70,
+                  bottom: p.captions.margin_v,
+                  textAlign: "center",
+                  fontFamily: p.captions.font_name,
+                  fontSize: p.captions.font_size,
+                  fontWeight: 700,
+                  lineHeight: 1.16,
+                  color: "#fff",
+                  whiteSpace: "pre-wrap",
+                  WebkitTextStroke: `${p.captions.outline_width ?? 1.5}px #101010`,
+                  paintOrder: "stroke fill",
+                  textShadow: "1px 1px 1px #000",
+                }}
+              >
+                {wrap(c.text, p.captions.max_chars)}
+              </div>
+            );
+            return p.captions.font_name === "Be Vietnam Pro" ? (
+              <VietnameseFont key={c.id}>{caption}</VietnameseFont>
+            ) : (
+              caption
+            );
+          })}
       {p.audio.music && (
         <Audio
           src={mediaUrl(s.job_id, p.audio.music.path)}

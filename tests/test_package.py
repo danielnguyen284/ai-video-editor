@@ -26,6 +26,7 @@ class PackageTests(unittest.TestCase):
             "profiles/demo.json":"{}", "scripts/setup.ps1":"# setup", "tests/test_demo.py":"# test",
             "motion/src/index.tsx":"// source", "motion/package.json":"{}", "motion/package-lock.json":"{}",
             "motion/tsconfig.json":"{}", "motion/render.mjs":"// renderer",
+            "motion/public/fonts/BeVietnamPro-Bold.ttf":"synthetic font bytes", "motion/public/fonts/OFL.txt":"license fixture",
             "editor/package.json":"{}", "editor/package-lock.json":"{}", "editor/index.html":"<html></html>",
             "editor/src/main.tsx":"// UI source", "editor/src/style.css":"body{}",
             "editor/build/assets/private.js":"PRIVATE BUILD", "editor/node_modules/private.js":"PRIVATE NODE MODULE",
@@ -54,6 +55,8 @@ class PackageTests(unittest.TestCase):
             self.assertIn("ai-editor/launch_editor.pyw",names)
             self.assertIn("ai-editor/Open AI Editor.cmd",names)
             self.assertIn("ai-editor/motion/package-lock.json",names)
+            self.assertIn("ai-editor/motion/public/fonts/BeVietnamPro-Bold.ttf",names)
+            self.assertIn("ai-editor/motion/public/fonts/OFL.txt",names)
             self.assertIn("ai-editor/skills/style/SKILL.md",names)
             self.assertIn("ai-editor/editor/src/main.tsx",names)
             self.assertIn("ai-editor/editor/package-lock.json",names)
