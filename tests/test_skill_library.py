@@ -7,6 +7,7 @@ from unittest.mock import patch
 
 from core.common import ROOT, EditorError, digest, executable, read_json, write_json
 from core.skill_library import content_digest, inventory, snapshot
+from core.skill_shortcuts import check_shortcuts, entries, register_shortcuts
 
 
 class LibraryIntegrityTests(unittest.TestCase):
@@ -22,6 +23,7 @@ class LibraryIntegrityTests(unittest.TestCase):
         (self.folder / 'references').mkdir()
         (self.folder / 'references/timing.md').write_text('Pinned timing rules', encoding='utf-8')
         package = {'id': 'example/edit', 'name': 'edit', 'source_path': 'skills/edit',
+                   'menu_description': 'Edit a fixture video using the example workflow.',
                    'entrypoint_sha256': digest(self.folder / 'SKILL.md'),
                    'content_sha256': content_digest(self.folder)}
         write_json(self.root / 'skills/library.json', {'schema_version': '1.0', 'install_root': '.tools/library',
@@ -49,6 +51,64 @@ class LibraryIntegrityTests(unittest.TestCase):
         self.assertFalse((self.folder / 'SKILL.md').exists())
         with self.assertRaisesRegex(EditorError, 'Unknown upstream'):
             snapshot('example/unknown', self.root)
+
+    def test_native_registration_is_idempotent_and_preserves_upstream(self):
+        source_hash = content_digest(self.folder)
+        first = register_shortcuts(self.root)
+        self.assertEqual(first, {'registered': 1, 'created': 1})
+        entry = self.root/'.agents/skills/video-example-edit/SKILL.md'
+        self.assertTrue(entry.is_file())
+        original = entry.read_bytes()
+        stat = entry.stat().st_mtime_ns
+        self.assertEqual(register_shortcuts(self.root), {'registered': 1, 'created': 0})
+        self.assertEqual((entry.read_bytes(), entry.stat().st_mtime_ns), (original, stat))
+        self.assertEqual(content_digest(self.folder), source_hash)
+        self.assertEqual(inventory(self.root)['packages'][0]['shortcut'], '$video-example-edit')
+        self.assertEqual(check_shortcuts(self.root)[0]['status'], 'registered')
+
+    def test_duplicate_upstream_names_and_groups_have_distinct_discoverable_targets(self):
+        config = read_json(self.root/'skills/library.json')
+        other = self.root/'.tools/library/another/edit'
+        shutil.copytree(self.folder, other)
+        package = dict(config['sources'][0]['packages'][0], id='another/edit')
+        config['sources'].append({'key': 'another', 'repo': 'another/skills', 'commit': 'b'*40,
+                                  'license': 'MIT', 'packages': [package]})
+        group = self.root/'skills/styles/example/SKILL.md'
+        group.parent.mkdir(parents=True)
+        group.write_text('---\nname: example\ndescription: Group fixture\n---\nSelect the example workflow.\n', encoding='utf-8')
+        config['groups'] = [{'id': 'example', 'menu_description': 'Select the example workflow group.'}]
+        write_json(self.root/'skills/library.json', config, replace=True)
+        register_shortcuts(self.root)
+        planned = entries(self.root)
+        self.assertEqual({x['name'] for x in planned}, {'video-example-edit', 'video-another-edit', 'video-group-example'})
+        for item in planned:
+            entry = self.root/'.agents/skills'/item['name']/'SKILL.md'
+            target = (entry.parent/'../../..'/item['target']).resolve()
+            self.assertTrue(target.is_relative_to(self.root))
+            self.assertTrue(target.is_file())
+        self.assertTrue(all(row['status'] == 'registered' for row in check_shortcuts(self.root)))
+
+    def test_registration_refuses_local_edits_before_creating_other_shortcuts(self):
+        register_shortcuts(self.root)
+        entry = self.root/'.agents/skills/video-example-edit/SKILL.md'
+        entry.write_text('Local authoring change', encoding='utf-8')
+        config = read_json(self.root/'skills/library.json')
+        other = self.root/'.tools/library/another/edit'
+        shutil.copytree(self.folder, other)
+        package = dict(config['sources'][0]['packages'][0], id='another/edit')
+        config['sources'].append({'key': 'another', 'packages': [package]})
+        write_json(self.root/'skills/library.json', config, replace=True)
+        with self.assertRaisesRegex(EditorError, 'Preserved modified native skill'):
+            register_shortcuts(self.root)
+        self.assertEqual(entry.read_text(encoding='utf-8'), 'Local authoring change')
+        self.assertFalse((self.root/'.agents/skills/video-another-edit').exists())
+        self.assertEqual(check_shortcuts(self.root)[0]['status'], 'modified')
+
+    def test_missing_upstream_target_does_not_create_a_dangling_shortcut(self):
+        (self.folder/'SKILL.md').unlink()
+        with self.assertRaisesRegex(EditorError, 'Restore the library first'):
+            register_shortcuts(self.root)
+        self.assertFalse((self.root/'.agents').exists())
 
 
 class ComparisonTests(unittest.TestCase):

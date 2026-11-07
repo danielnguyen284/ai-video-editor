@@ -19,13 +19,27 @@ Các template Keyword/KineticScene, font Be Vietnam Pro và helper [render_text.
 
 ## Cài lại, kiểm tra và lưu snapshot
 
+Codex nhận diện skill repo từ `.agents/skills/`. Source đặt riêng trong `.tools/skill-library/` không tự hiện trong menu. Dự án đăng ký **39 entrypoint** (33 package + 6 nhóm) với tên riêng, không copy/sửa package upstream. Theo [tài liệu chính thức](https://learn.chatgpt.com/docs/build-skills), Codex CLI/IDE dùng `$` hoặc `/skills`; ChatGPT dùng `@` khi skill có trong selector của host.
+
+| Muốn dùng | Tên trong menu Codex |
+|---|---|
+| Melvynx dựng short cụ thể | `$video-melvynx-short-editing` |
+| Chọn nhóm Melvynx và helper phù hợp | `$video-group-melvynx-raw` |
+| Catalog motion theo ID | `$video-motion-prompt` |
+| Explainer tài chính/công nghệ | `$video-wallstreet-explainer` |
+| Kết nối OpenChatCut | `$video-openchatcut` |
+| B-roll Melvynx / Resolve | `$video-melvynx-broll` / `$video-resolve-broll` |
+
+Gõ `$video-` để lọc các mục của repo. Chọn một skill hoặc nhóm làm workflow chính trong prompt; chỉ đọc helper khi cần. Tên profile như `motion-catalog-vi` dùng cho CLI/Studio, không phải tên skill trong menu. Khi menu còn cache, khởi động lại Codex trong đúng workspace. Phạm vi cục bộ không làm skill xuất hiện trong một workspace khác.
+
 ```powershell
 .\.venv\Scripts\python.exe scripts/install_skill_library.py
 .\.venv\Scripts\python.exe scripts/install_skill_library.py --check
 .\.venv\Scripts\python.exe ai_editor.py skills --full
+.\.venv\Scripts\python.exe scripts/register_skill_shortcuts.py --check
 ```
 
-Script dùng helper `skill-installer` của Codex và đúng commit trong manifest. Có thể truyền `--installer PATH` nếu helper nằm nơi khác. Nó giữ các package đã đúng checksum, không ghi đè package bị sửa hoặc cài dở, và không chạy setup engine/API/model của upstream. Setup tổng hợp có flag `-WithSkills`. ZIP nguồn chỉ mang manifest, nhóm định tuyến và script phục hồi; source tải về, ví dụ media và engine bên thứ ba không nằm trong ZIP.
+Script dùng helper `skill-installer` của Codex và đúng commit trong manifest. Có thể truyền `--installer PATH` nếu helper nằm nơi khác. Nó giữ các package đã đúng checksum, không ghi đè package bị sửa hoặc cài dở, và không chạy setup engine/API/model của upstream. Sau khi kiểm tra source, nó đăng ký entrypoint vào `.agents/skills/`. Có thể chạy `scripts/register_skill_shortcuts.py` riêng để bổ sung các entrypoint còn thiếu; file đã sửa tay được giữ lại và báo lỗi. Setup tổng hợp có flag `-WithSkills`. ZIP nguồn mang manifest, nhóm định tuyến, entrypoint và script phục hồi; source tải về, ví dụ media và engine bên thứ ba không nằm trong ZIP.
 
 Khi làm theo lệnh trong upstream, ánh xạ `<skill-dir>` hoặc đường dẫn ví dụ `~/.claude/skills/...` tới thư mục package thực tế trong `.tools/skill-library/<source>/<package>`. Giữ các package cùng nguồn cạnh nhau để các reference tương đối tìm đúng chỗ. Kiểm tra script/path thực có trên máy trước khi chạy.
 

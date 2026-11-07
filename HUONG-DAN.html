@@ -51,6 +51,7 @@
       </div>
       <blockquote>Dựng <code>inbox/raw.mp4</code> bằng nhóm <code>melvynx-raw-vi</code>. Đọc transcript và đưa phương án cắt, caption, hình và âm thanh để tôi chọn.</blockquote>
       <p class="note">Có 32 skill thuộc 6 repo, cùng skill kết nối OpenChatCut, được ghim phiên bản. Skill đã cài không đồng nghĩa mọi engine đã chạy được trên Windows: Sunithvs/Agentic có phần cần macOS; Resolve cần app/scripting và có license phi thương mại. Xem <a href="core/skill-library.md">nhóm skill và giới hạn thực tế</a>. Bộ style cũ đã nghỉ dùng; job cũ giữ snapshot và khóa.</p>
+      <p>Để chọn một skill trong Codex CLI/IDE, mở đúng repo và gõ <code>$video-</code>. Ví dụ <code>$video-melvynx-short-editing</code> cho short, <code>$video-motion-prompt</code> cho motion, hoặc <code>$video-group-melvynx-raw</code> cho nhóm. Có 39 entrypoint trong <code>.agents/skills/</code>; setup <code>-WithSkills</code> tự đăng ký chúng. Nếu menu còn cũ, khởi động lại Codex. Tên profile JSON dùng cho CLI/Studio, không phải tên trong menu.</p>
       <p>Muốn nhiều bản thử: yêu cầu AI dùng cùng raw/brief để tạo A/B/C theo các nhóm đã chọn. Sau khi dựng và xuất riêng từng job, dùng <code>compare-view</code> để mở trang xem cạnh nhau. <a href="core/skill-library.md#tạo-nhiều-output-để-so-sánh">Lệnh tạo draft và so sánh</a>.</p>
       <p class="note">OpenChatCut đang được cân nhắc làm UI tiếp theo; mới cài skill kết nối, chưa thay app hoặc chuyển project. <a href="core/openchatcut.md">Đánh giá và phương án chuyển</a>.</p>
     </li>

@@ -13,6 +13,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from core.common import EditorError, within
 from core.skill_library import catalog, inventory, package_status
+from core.skill_shortcuts import check_shortcuts, register_shortcuts
 
 
 def install(installer):
@@ -55,6 +56,8 @@ def install(installer):
     rows = inventory(full=True)["packages"]
     if any(row["status"] != "installed" for row in rows):
         raise EditorError("Skill verification failed; run --check for details.")
+    shortcuts = register_shortcuts()
+    print(f"Registered {shortcuts['registered']} project skill shortcuts in .agents/skills.")
     print(f"Verified {len(rows)} pinned skills. No upstream setup, model download or external service was started.")
 
 
@@ -71,7 +74,12 @@ def main():
             rows = inventory(full=True)["packages"]
             for row in rows:
                 print(f"{row['status']:10} {row['id']}")
-            return int(any(row["status"] != "installed" for row in rows))
+            shortcuts = check_shortcuts()
+            invalid = [row for row in shortcuts if row["status"] != "registered"]
+            print(f"Native entrypoints: {len(shortcuts) - len(invalid)}/{len(shortcuts)} registered")
+            for row in invalid:
+                print(f"{row['status']:10} ${row['name']}")
+            return int(any(row["status"] != "installed" for row in rows) or bool(invalid))
         install(args.installer)
         return 0
     except (EditorError, OSError, ValueError) as error:

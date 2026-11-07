@@ -48,7 +48,13 @@ Nguồn upstream cài trong `.tools/skill-library/`, không commit media/ví d�
 .\.venv\Scripts\python.exe ai_editor.py skills --full
 ```
 
-Có thể dùng flag `-WithSkills` trong setup. Các file đã chỉnh khác checksum được giữ nguyên và báo lỗi, không bị ghi đè. Các skill được định tuyến qua AGENTS/profile trong dự án; skill toàn cục không thay đổi. Chúng có thể được agent đọc ở lượt chat tiếp theo trong workspace này.
+Có thể dùng flag `-WithSkills` trong setup. Các file đã chỉnh khác checksum được giữ nguyên và báo lỗi, không bị ghi đè. **39 entrypoint trong `.agents/skills/`** giúp Codex nhận diện 33 skill riêng lẻ và 6 nhóm trong menu; source upstream vẫn nằm tại `.tools/skill-library/`. Đây là skill phạm vi repo, không thay đổi skill toàn cục.
+
+Trong Codex CLI/IDE, mở đúng workspace `ai-editor`, gõ `$video-` rồi chọn skill. Ví dụ: `$video-melvynx-short-editing` cho một workflow cụ thể, `$video-motion-prompt` để chọn motion, hoặc `$video-group-melvynx-raw` để chọn cả nhóm và định tuyến tới helper phù hợp. Prompt mẫu:
+
+> Dùng $video-melvynx-short-editing dựng `inbox/raw.mp4` thành TikTok tiếng Việt. Đề xuất cách cắt, caption và hình minh họa để tôi chọn.
+
+Không cần gõ tên profile JSON vào menu `$`; profile dùng khi tạo job qua CLI/Studio. Trong ChatGPT, dùng menu `@` nếu host hiển thị skill. Nếu danh sách vẫn cũ, khởi động lại Codex và mở lại đúng repo. [Cách gọi và vị trí nhận diện skill chính thức](https://learn.chatgpt.com/docs/build-skills). Lệnh phục hồi riêng entrypoint: `.venv/Scripts/python.exe scripts/register_skill_shortcuts.py`.
 
 **OpenChatCut là ứng viên thay giao diện.** Skill kết nối đã cài; app và MCP chưa cấu hình. [Đánh giá kỹ thuật và phương án chuyển dữ liệu](core/openchatcut.md) chỉ ra những phần cần map, đặc biệt khóa vùng đã duyệt và custom motion. Studio hiện tại tiếp tục phục vụ job cũ.
 

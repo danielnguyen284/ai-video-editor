@@ -51,6 +51,7 @@ def package_status(source, package, folder, *, full=False):
 
 
 def inventory(root=ROOT, *, full=False):
+    from core.skill_shortcuts import native_name
     data = catalog(root)
     rows = []
     for source in data["sources"]:
@@ -58,6 +59,7 @@ def inventory(root=ROOT, *, full=False):
             _, _, folder = package_info(package["id"], root)
             rows.append({"id": package["id"], "repo": source["repo"], "commit": source["commit"],
                          "status": package_status(source, package, folder, full=full),
+                         "shortcut": "$" + native_name(source["key"], package["name"]),
                          "license": source["license"], "path": folder.relative_to(root).as_posix()})
     return {"groups": data["groups"], "packages": rows,
             "note": "Installed means skill files are present; upstream engines/services require separate setup."}
