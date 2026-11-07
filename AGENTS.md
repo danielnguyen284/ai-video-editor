@@ -11,7 +11,7 @@ Read `README.md` for commands and `core/schemas/edit-plan.md` before changing an
 - Use `.venv/Scripts/python.exe ai_editor.py` on this Windows workspace. `doctor` reports local dependencies.
 - Follow `core/interaction.md`: present choices and wait for the user's answers for every unresolved creative/workflow decision. A suggestion or stored preference is not a selected answer. A clear choice already supplied in the prompt counts; do not ask the same question again.
 - Ask in small batches about style, domain, output, footage analysis, transcription, cuts, captions, research, visuals and audio. Then present concrete edit proposals derived from the transcript. The user can select an option, describe their own choice or explicitly delegate a defined decision.
-- Resolve the chosen profile from `profiles/`. Read its style/domain `SKILL.md` files. `finance-premium-vi` is an available suggestion, not an automatic user selection.
+- Resolve the chosen group profile from `profiles/`. Read its routing skill and the relevant pinned upstream packages using `core/skill-library.md`. There is no automatic house style. The previous project-written styles/domains and profiles were retired; existing jobs continue using their recorded snapshots.
 - Create jobs with `new-job`. Copy source media, preserve the original. The initial plan keeps all footage and disables captions; it is a starting point, not a finished edit.
 - Record setup answers and the actual user reply with `decide --stage setup` before transcription. Read the transcript, propose cuts/hooks, wait for any missing decisions, then implement the selected proposal. Preserve `transcript/raw.json`; log corrections in `cleaned.json`.
 - Before the first local transcription, explain that `setup.ps1 -WithTranscription` installs the faster-whisper package only; model weights are not bundled in the sharing ZIP. Offer the CLI default `large-v3` (about 3 GB, potentially slow and memory-heavy on CPU), a lighter model such as `small`, or an existing compatible local model directory. Wait for a model choice unless already supplied, record it with the actual reply in the job's intake/setup notes, and pass that model explicitly to `transcribe`. Do not silently change the selected model. Explain download versus inference progress and cache reuse; `doctor` does not verify or download weights. See `README.md` under Whisper.
@@ -28,16 +28,19 @@ Read `README.md` for commands and `core/schemas/edit-plan.md` before changing an
 
 ## Skill routing
 
-- `skills/styles/premium-explainer/SKILL.md`: premium explanatory editing, caption/motion/audio choices.
-- `skills/styles/visual-keyword/SKILL.md`: separate style with a title from frame 0, sparse large keywords and selected illustrations; profile `finance-visual-keyword-vi`. Use explicit keyword cues or text PNG layers, never automatic full-transcript captions for this style.
-- `skills/styles/talking-head-pro/SKILL.md`: phrase captions, selected emphasis and infographic inserts, independently based on the public s1 demo. Profiles `talking-head-pro-vi` (general) and `finance-talking-head-pro-vi`.
-- `skills/styles/kinetic-motion/SKILL.md`: large scene typography, staggered UI cards and progress via KineticScene. Profiles `kinetic-motion-vi` (general) and `finance-kinetic-motion-vi`. In the reference-page context, “kinematic” refers to Kinetic Motion, not cinematic footage or physics. Keep automatic full-transcript captions off unless the user selects them.
+- Read `core/skill-library.md` for installed sources, runtime limits and comparison workflow. `skills/library.json` pins 32 skills from the six Chrome source repos, plus the OpenChatCut connector. Upstream packages live in ignored `.tools/skill-library/`; restore them with `scripts/install_skill_library.py` and verify with `--check`. Installed skill files do not mean their native engines/services are configured.
+- `skills/styles/melvynx-raw/SKILL.md` / `melvynx-raw-vi`: raw/short-form, script, B-roll, style reference and repurpose. Research, account audit, translation and publishing helpers are scoped tasks, not automatic edit steps.
+- `skills/styles/sunithvs-raw/SKILL.md` / `sunithvs-raw-vi`: talking-head/kinetic text and YouTube. Upstream macOS/Linux scripts require Windows porting before native execution.
+- `skills/styles/wallstreet-finance/SKILL.md` / `wallstreet-finance-vi`: evidence/presenter/financial-technology explainer. Confirm language, framing and available engine; no automatic Chinese text, TTS or example media.
+- `skills/styles/motion-catalog/SKILL.md` / `motion-catalog-vi`: named motion/transitions by catalog ID. Fetch the selected spec/kit, then port into the chosen composition.
+- `skills/styles/review-variants/SKILL.md` / `review-variants-vi`: ad variants and timestamp feedback. Native Apple Silicon/macOS pipeline is not ready on Windows. Installed `video-qa` does not authorize an AI review role or automatic repair loop.
+- `skills/styles/resolve-roughcut/SKILL.md` / `resolve-roughcut-vi`: editing inside DaVinci Resolve; requires app/scripting and respects upstream CC BY-NC 4.0 usage scope.
+- `skills/domains/source-context/SKILL.md` keeps the existing profile domain slot while actual subject/language comes from the user's brief. Do not impose finance merely because the library contains a finance group.
+- Select one main group per output and shared helpers only as needed. Do not load all installed skills or blend their defaults. For new raw footage, `compare-new` creates independent pending drafts from explicitly chosen profiles/format; actual edits still require choices or scoped delegation. Use `compare-view` after exporting to view outputs side by side. Never use a new comparison job to bypass approved ranges in an existing project.
+- OpenChatCut connector: `.tools/skill-library/openchatcut/openchatcut/SKILL.md`. `core/openchatcut.md` records the UI assessment; app/MCP migration is not implemented. Do not treat its track locks as proven equivalents of this project's interval fingerprints.
 - `core/platforms/tiktok.md`: shared TikTok guidance for opening, pacing, vertical layout and interface clearance; combine with the selected style/domain rather than replacing them.
 - `core/style-learning.md`: required learning from edit/revision requests, with scope, evidence, skill/profile versioning and documentation updates.
-- `skills/domains/finance/SKILL.md`: Vietnamese financial terminology, source research and number handling.
-- `skills/domains/general/SKILL.md`: non-specialist knowledge/personal-brand content, preserving claims and distinguishing examples from evidence. Do not select finance merely because the project has finance profiles.
-- Add new styles/domains under `skills/` with `skill.json`, `SKILL.md` frontmatter and a profile selecting the exact version. Read the selected package when used; do not load every skill.
-- These are project-local skills loaded through this file/profile, not globally installed skills.
+- Maintain group-specific changes in routing packages under `skills/` with exact profile versions. Keep upstream packages immutable; update their source commit/checksum deliberately. These are project-local skills, not a change to unrelated global Codex skills.
 
 ## Changes to this code
 

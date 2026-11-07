@@ -1,0 +1,27 @@
+{
+  "id": "motion-catalog-vi",
+  "display_name": "Motion Prompt: motion và chuyển cảnh có mã số",
+  "readiness_note": "Catalog CLI chạy được. Motion được chọn cần port vào composition của job.",
+  "version": "2.0.0",
+  "language": "vi",
+  "skill_group": "motion-catalog",
+  "skills": {
+    "style": {
+      "id": "style/motion-catalog",
+      "version": "1.0.0"
+    },
+    "domain": {
+      "id": "domain/source-context",
+      "version": "1.0.0"
+    }
+  },
+  "export": {
+    "preset": "vertical-shortform",
+    "width": 1080,
+    "height": 1920,
+    "fps": 30,
+    "fit": "pad"
+  },
+  "overrides": {},
+  "preferences_ref": "preferences/default.json"
+}

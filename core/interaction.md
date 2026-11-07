@@ -11,7 +11,7 @@ TikTok is the user's primary platform for suggestions. For these briefs, read [t
 - Never interpret silence, elapsed time, a recommended option or a profile default as an answer. While waiting, only prepare work independent of that choice, such as reading media metadata.
 - Preferences and prior jobs inform suggestions. They do not authorize silent choices for a new job. An explicit answer within the current job carries over until the user changes it.
 - The user may explicitly delegate a decision, e.g. “choose cuts within this style for me.” Record that scope. Ask again for changes outside it.
-- Verify what is actually installed before offering it as ready. Styles are premium-explainer (restrained phrase captions), visual-keyword (opening title + sparse keywords/images), talking-head-pro (phrase captions + selective infographic inserts) and kinetic-motion (large scene text + staggered cards/progress). The two new styles have general and finance profiles. Selecting visual-keyword or kinetic-motion chooses selective text rather than automatic full-transcript captions; ask about the actual words, timing and sourcing. “Create a new style from my reference” is a supported agent task. Visual options are image/logo/B-roll layers, static text PNGs through the visual-keyword helper and Remotion MetricCard, BarChart, LowerThird or KineticScene. Footage options are local OpenCV signals, IDE inspection of sampled images or Ollama semantics with an installed vision model. KineticScene animates its own text/cards; arbitrary source-camera animation and continuous face following are not bundled. Motion availability still depends on doctor/setup.
+- Verify installed files and runtime capability separately before offering a group as ready. Read `core/skill-library.md` for the six upstream groups, profiles and Windows limitations; `ai_editor.py skills --full` checks pinned packages. A group selects an editorial vocabulary, not every upstream layout, language, CTA, speed or cloud provider. For comparisons, clarify what varies and what stays shared, then create independent drafts/outputs without mixing every group's defaults. Visual options in the existing renderer remain image/logo/B-roll layers, static text PNGs via `scripts/render_text.py`, and Remotion MetricCard/BarChart/LowerThird/Keyword/KineticScene. Footage options remain local signals, IDE image inspection or a selected installed Ollama model. Unsupported camera animation, speed changes, external engines and services need explicit implementation/setup before being represented as working.
 
 ## Decision groups
 
@@ -31,8 +31,8 @@ Each revision has `decisions.json` with setup answers, the concrete selected pro
 
 ```json
 {
-  "style": "style/premium-explainer",
-  "domain": "domain/finance",
+  "style": "style/melvynx-raw",
+  "domain": "domain/source-context",
   "output": {"width":1080,"height":1920,"fps":30,"fit":"pad"},
   "footage_analysis": false,
   "transcription": true,

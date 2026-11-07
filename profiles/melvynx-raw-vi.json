@@ -1,0 +1,27 @@
+{
+  "id": "melvynx-raw-vi",
+  "display_name": "Melvynx raw và short-form",
+  "readiness_note": "Skill đã cài. Engine riêng của Melvynx cần setup; Studio chỉ thực thi các hiệu ứng đã hỗ trợ.",
+  "version": "2.0.0",
+  "language": "vi",
+  "skill_group": "melvynx-raw",
+  "skills": {
+    "style": {
+      "id": "style/melvynx-raw",
+      "version": "1.0.0"
+    },
+    "domain": {
+      "id": "domain/source-context",
+      "version": "1.0.0"
+    }
+  },
+  "export": {
+    "preset": "vertical-shortform",
+    "width": 1080,
+    "height": 1920,
+    "fps": 30,
+    "fit": "pad"
+  },
+  "overrides": {},
+  "preferences_ref": "preferences/default.json"
+}

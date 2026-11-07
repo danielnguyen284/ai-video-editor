@@ -23,6 +23,8 @@ Clear style-wide instructions can be implemented directly. When intended scope i
 
 ## Update useful rules
 
+The current library uses separate upstream groups for alternative outputs. Put a reusable lesson in the selected group's routing package, a focused local reference, or scoped preference as appropriate. Do not merge a lesson from one group into every other candidate. Upstream source in `.tools/skill-library/` stays pinned and immutable; an intentional upstream update changes `skills/library.json` commit/checksums. Existing jobs retain their snapshots. The previous project-written style/domain catalog has been retired; never restore its defaults implicitly from an old job.
+
 1. Apply the user's selected edit/revision within its scope. Extract learning during the same task, before the final handoff; do not delay the work merely to build a learning catalog.
 2. Compare the candidate with existing instructions. Merge or refine a relevant paragraph instead of appending another near-duplicate. State the condition, intended outcome and executable treatment. If there is no new supported rule, leave the shared skill unchanged.
 3. Update the appropriate `SKILL.md` and any affected reference or defaults. Keep substantial treatment-specific instructions in references. Do not put transcript text, personal details or job-specific media into shared skill files.

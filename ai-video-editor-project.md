@@ -1,3 +1,7 @@
+# Tài liệu thiết kế ban đầu — lưu trữ
+
+Tài liệu dưới đây giữ lại thiết kế/lộ trình gốc để tham khảo lịch sử; các catalog style/domain, profile và ví dụ cài đặt bên dưới không còn là bộ đang dùng. Từ 07/11/2026, xem [README](README.md), [AGENTS](AGENTS.md), [thư viện skill mới](core/skill-library.md) và [đánh giá OpenChatCut](core/openchatcut.md) cho trạng thái thực tế. Không khôi phục mặc định cũ từ tài liệu này vào job mới.
+
 ﻿# AI Video Editor — Bộ khung role và skill
 
 ## 1. Mục tiêu dự án

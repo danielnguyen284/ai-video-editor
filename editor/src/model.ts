@@ -91,6 +91,7 @@ export type Project = {
   updated_at: string;
 };
 export type View = {
+  profile: { id: string; skills: { style: { id: string }; domain: { id: string } } };
   media: {
     width: number;
     height: number;

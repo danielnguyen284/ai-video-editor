@@ -175,14 +175,14 @@ function App() {
       )
         return;
       const data = await api("project?job=" + encodeURIComponent(job));
-      const { media, source, library, setup, durations, ...state } = data;
+      const { media, source, library, setup, durations, profile, ...state } = data;
       current.current = state;
       version.current = state.version;
       generation.current++;
       undo.current = [];
       redo.current = [];
       setProject(state);
-      setView({ media, source, library, setup, durations });
+      setView({ media, source, library, setup, durations, profile });
       setSelected(null);
       const start = Math.max(
         0,
@@ -845,9 +845,8 @@ function App() {
           !setup.processing
         )
           throw new Error("Hãy chọn các mục thiết lập còn trống.");
-        const profile = profiles.find(
-          (x) => x.id === jobs.find((j) => j.id === s.job_id)?.profile,
-        );
+        const profile = view.profile;
+        if (!profile) throw new Error("Cần khởi động lại server để đọc profile snapshot của bản dựng.");
         answers = {
           style: profile.skills.style.id,
           domain: profile.skills.domain.id,
@@ -975,14 +974,14 @@ function App() {
                   const data = await api(
                     "project?job=" + encodeURIComponent(project.job_id),
                   );
-                  const { media, source, library, setup, durations, ...state } =
+                  const { media, source, library, setup, durations, profile, ...state } =
                     data;
                   current.current = state;
                   version.current = state.version;
                   undo.current = [];
                   redo.current = [];
                   setProject(state);
-                  setView({ media, source, library, setup, durations });
+                  setView({ media, source, library, setup, durations, profile });
                   setSelected(null);
                   seek(0);
                   setNotice("Đã mở " + revision + "; các vùng khóa được giữ.");
@@ -2273,13 +2272,16 @@ function App() {
                       setNewJob({ ...newJob, profile: e.target.value })
                     }
                   >
-                    <option value="">Chọn style & lĩnh vực…</option>
+                    <option value="">Chọn nhóm skill…</option>
                     {profiles.map((p) => (
                       <option key={p.id} value={p.id}>
-                        {p.id}
+                        {p.display_name || p.id}
                       </option>
                     ))}
                   </select>
+                  {newJob.profile && (
+                    <small>{profiles.find((p) => p.id === newJob.profile)?.readiness_note}</small>
+                  )}
                 </Field>
                 <Field label="Mô tả mục tiêu">
                   <textarea

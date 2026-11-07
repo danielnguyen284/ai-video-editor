@@ -32,7 +32,7 @@ def revision_folder(folder, revision=None):
     return result
 
 
-def create_job(job_id, video, profile_id, brief):
+def create_job(job_id, video, profile_id, brief, *, output=None):
     identifier(job_id)
     source = Path(video).resolve()
     if not source.is_file():
@@ -41,6 +41,15 @@ def create_job(job_id, video, profile_id, brief):
     if folder.exists():
         raise EditorError(f"Job already exists: {job_id}. Choose another ID or create a revision.")
     resolved = resolve_profile(profile_id)
+    if output is not None:
+        if set(output) != {"width", "height", "fps", "fit"}:
+            raise EditorError("Initial output override needs width, height, fps and fit.")
+        for key in ("width", "height", "fps"):
+            if isinstance(output[key], bool) or not isinstance(output[key], int) or output[key] < 1:
+                raise EditorError(f"Initial output.{key} must be a positive integer.")
+        if output["width"] % 2 or output["height"] % 2 or output["fit"] not in ("pad", "crop"):
+            raise EditorError("Initial output needs even dimensions and pad/crop fit.")
+        resolved["profile"]["export"].update(output)
     media = probe(source)
     if not media["has_video"]:
         raise EditorError("Input must contain a video stream.")

@@ -1,4 +1,4 @@
-param([switch]$WithTranscription, [switch]$WithMotion, [switch]$WithVision, [switch]$WithEditor)
+param([switch]$WithTranscription, [switch]$WithMotion, [switch]$WithVision, [switch]$WithEditor, [switch]$WithSkills)
 $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path -Parent $PSScriptRoot
 Push-Location -LiteralPath $projectRoot
@@ -8,6 +8,10 @@ try {
         if ($LASTEXITCODE -ne 0) { throw 'Could not create Python virtual environment.' }
     }
     $projectPython = Join-Path $projectRoot '.venv\Scripts\python.exe'
+    if ($WithSkills) {
+        & $projectPython scripts/install_skill_library.py
+        if ($LASTEXITCODE -ne 0) { throw 'Pinned skill library installation failed.' }
+    }
     & $projectPython scripts/setup_tools.py
     if ($LASTEXITCODE -ne 0) { throw 'FFmpeg setup failed.' }
     if ($WithTranscription) {

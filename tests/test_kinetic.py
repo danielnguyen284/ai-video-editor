@@ -42,16 +42,17 @@ class KineticSpecTests(unittest.TestCase):
             with self.subTest(change=change), self.assertRaises(EditorError):
                 validate_spec(spec)
 
-    def test_new_profiles_resolve_exact_versions_and_separate_text_defaults(self):
-        for domain in ("general", "finance"):
-            for style in ("talking-head-pro", "kinetic-motion"):
-                profile = f"{style}-vi" if domain == "general" else f"finance-{style}-vi"
-                resolved = resolve_profile(profile)
-                self.assertEqual([s["id"] for s in resolved["skills"]], [f"style/{style}", f"domain/{domain}"])
-                captions = resolved["settings"]["captions"]
-                self.assertEqual("items" in captions, style == "kinetic-motion")
-                if style == "kinetic-motion":
-                    self.assertEqual(captions["items"], [])
+    def test_group_profiles_freeze_sources_without_selecting_a_caption_treatment(self):
+        from core.skill_library import catalog
+        for group in catalog()["groups"]:
+            resolved = resolve_profile(group["profile"])
+            self.assertEqual([s["id"] for s in resolved["skills"][:2]],
+                             ["style/" + group["id"], "domain/source-context"])
+            self.assertEqual({s["id"] for s in resolved["skills"][2:]},
+                             {"upstream/" + name for name in group["packages"]})
+            self.assertTrue(all(len(s["version"]) == 40 and "SKILL.md" in s["files"] for s in resolved["skills"][2:]))
+            self.assertNotIn("items", resolved["settings"]["captions"])
+            self.assertEqual(resolved["settings"]["captions"]["font_name"], "Be Vietnam Pro")
 
     def test_keyword_accepts_speech_timing_and_rejects_unrendered_panel_fields(self):
         spec = {'template':'Keyword','width':480,'height':160,'fps':30,'duration_frames':90,

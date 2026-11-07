@@ -1,0 +1,34 @@
+{
+  "id": "style/resolve-roughcut",
+  "version": "1.0.0",
+  "kind": "style",
+  "entrypoint": "SKILL.md",
+  "upstream_packages": [
+    "resolve/broll",
+    "resolve/captions",
+    "resolve/edit-video",
+    "resolve/figma-roundtrip",
+    "resolve/motion-overlays",
+    "resolve/music-and-sound",
+    "resolve/resolve-scripting",
+    "resolve/rough-cut",
+    "resolve/video-editor-setup",
+    "resolve/vlog-pacing",
+    "resolve/voice-and-audio",
+    "resolve/youtube-export"
+  ],
+  "defaults": {
+    "captions": {
+      "font_name": "Be Vietnam Pro",
+      "font_size": 50,
+      "margin_v": 320,
+      "max_chars": 28,
+      "max_lines": 2,
+      "outline_width": 2
+    },
+    "audio": {
+      "voice_gain": 1,
+      "music": null
+    }
+  }
+}

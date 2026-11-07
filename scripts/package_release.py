@@ -53,7 +53,7 @@ def package(output):
             target = stage/path.relative_to(ROOT)
             target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(path,target)
-        for name in ("inbox", "jobs"):
+        for name in ("inbox", "jobs", "comparisons"):
             (stage/name).mkdir()
             (stage/name/".gitkeep").touch()
         (stage/"preferences").mkdir()

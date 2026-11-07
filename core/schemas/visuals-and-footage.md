@@ -94,7 +94,7 @@ Entry is a small 5px cubic slide/fade without overshoot; exit fades and moves at
 
 ### KineticScene
 
-An original template for kinetic-motion and infographic inserts in talking-head-pro. This animates an overlay asset, not the source crop/camera. No example media is bundled. Use the usual request envelope with `template: "KineticScene"`.
+A reusable template for scene typography and infographic inserts. This animates an overlay asset, not the source crop/camera. It remains available independently of the retired style skills. No example media is bundled. Use the usual request envelope with `template: "KineticScene"`.
 
 Dimensions must be even, at least 320×480, with width/height between 0.5 and 0.8. Duration must be at least `2 * fps` frames. The 720×1280 internal design canvas scales to fit; its margins are a starting layout, not a guaranteed TikTok safe zone.
 
@@ -115,7 +115,7 @@ All supplied text must be nonblank on one input line; wrapping is automatic. Lon
 
 Animation uses asset-local frames: heading fade/slide, emphasis scale, card reveals from 0.4s staggered by 0.18s, progress from 0.6s with a final hold, and a short exit fade. The asset must cover the selected overlay duration; do not loop merely to extend it. ProRes 4444 retains alpha; the backdrop is opaque throughout when `transparent: false`, unused pixels stay transparent when true.
 
-Read [the kinetic implementation guide](../../skills/styles/kinetic-motion/references/implementation.md) for request/storyboard and CLI usage. These props belong in the motion request, never the edit-plan overlay. Full-frame scenes can cover a video while its selected narration continues. Audio-only/script-only job creation remains unsupported; `new-job` needs video.
+Read [the skill integration guide](../skill-library.md) when applying a selected upstream motion to this renderer. These props belong in the motion request, never the edit-plan overlay. Full-frame scenes can cover a video while its selected narration continues. Audio-only/script-only job creation remains unsupported; `new-job` needs video.
 
 ### Placing a rendered asset
 

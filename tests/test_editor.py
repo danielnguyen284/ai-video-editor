@@ -37,7 +37,7 @@ class EditorTests(unittest.TestCase):
     def setUp(self):
         self.job = self.id().split('.')[-1].replace('_', '-')
         with patch('core.jobs.ROOT', self.base):
-            self.folder = create_job(self.job, self.source, 'kinetic-motion-vi', 'Synthetic editor test; not a real user choice')
+            self.folder = create_job(self.job, self.source, 'motion-catalog-vi', 'Synthetic editor test; not a real user choice')
         revision = self.folder/'revisions/r001'
         plan = read_json(revision/'edit-plan.json')
         plan['export'].update(width=160, height=284)
@@ -48,10 +48,29 @@ class EditorTests(unittest.TestCase):
     def select_setup(self):
         state = self.store.load(self.job)
         record_choice(self.folder/'revisions/r001', 'setup', 'Synthetic test fixture explicitly selects these settings', answers={
-            'style': 'style/kinetic-motion', 'domain': 'domain/general',
+            'style': 'style/motion-catalog', 'domain': 'domain/source-context',
             'output': {k: state['plan']['export'][k] for k in ('width','height','fps','fit')},
             'footage_analysis': False, 'transcription': False, 'editing': 'Synthetic fixture source order',
             'captions': state['plan']['captions']['enabled'], 'research': 'None, synthetic data', 'visuals': 'Synthetic fixture layers', 'audio': 'Fixture voice only'})
+
+    def test_retired_profile_is_returned_from_revision_snapshot(self):
+        revision = self.folder/'revisions/r001'
+        config = read_json(revision/'resolved-config.json')
+        config['profile']['id'] = 'retired-profile'
+        config['profile']['skills']['style']['id'] = 'style/retired-style'
+        write_json(revision/'resolved-config.json', config, replace=True)
+        server = make_server(0, self.base)
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        try:
+            result = json.load(urlopen(f'http://127.0.0.1:{server.server_port}/api/project?job={self.job}'))
+            self.assertEqual(result['profile']['id'], 'retired-profile')
+            self.assertEqual(result['profile']['skills']['style']['id'], 'style/retired-style')
+            state = {key: value for key, value in result.items() if key not in {'profile', 'source', 'media', 'setup', 'library', 'durations'}}
+            self.assertEqual(self.store.save(self.job, state, 0)['version'], 1)
+            self.assertEqual(read_json(revision/'resolved-config.json')['profile']['id'], 'retired-profile')
+        finally:
+            server.shutdown()
+            server.server_close()
 
     def test_browser_upload_batch_import_thumbnails_and_originals(self):
         audio = self.base/'nhạc nền.wav'

@@ -1,0 +1,27 @@
+{
+  "id": "review-variants-vi",
+  "display_name": "Agentic: biến thể quảng cáo và feedback theo mốc",
+  "readiness_note": "Skill đã cài. Pipeline gốc cần Apple Silicon/macOS; AI QA không tự chạy.",
+  "version": "2.0.0",
+  "language": "vi",
+  "skill_group": "review-variants",
+  "skills": {
+    "style": {
+      "id": "style/review-variants",
+      "version": "1.0.0"
+    },
+    "domain": {
+      "id": "domain/source-context",
+      "version": "1.0.0"
+    }
+  },
+  "export": {
+    "preset": "vertical-shortform",
+    "width": 1080,
+    "height": 1920,
+    "fps": 30,
+    "fit": "pad"
+  },
+  "overrides": {},
+  "preferences_ref": "preferences/default.json"
+}

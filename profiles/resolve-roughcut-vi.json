@@ -1,0 +1,27 @@
+{
+  "id": "resolve-roughcut-vi",
+  "display_name": "DaVinci Resolve: rough cut, caption và âm thanh",
+  "readiness_note": "Cần DaVinci Resolve/scripting. Nguồn có license phi thương mại.",
+  "version": "2.0.0",
+  "language": "vi",
+  "skill_group": "resolve-roughcut",
+  "skills": {
+    "style": {
+      "id": "style/resolve-roughcut",
+      "version": "1.0.0"
+    },
+    "domain": {
+      "id": "domain/source-context",
+      "version": "1.0.0"
+    }
+  },
+  "export": {
+    "preset": "vertical-shortform",
+    "width": 1080,
+    "height": 1920,
+    "fps": 30,
+    "fit": "pad"
+  },
+  "overrides": {},
+  "preferences_ref": "preferences/default.json"
+}

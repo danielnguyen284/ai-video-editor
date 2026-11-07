@@ -1,0 +1,407 @@
+{
+  "schema_version": "1.0",
+  "version": "2.0.0",
+  "install_root": ".tools/skill-library",
+  "sources": [
+    {
+      "key": "melvynx",
+      "repo": "Melvynx/video-agent-skills",
+      "url": "https://github.com/Melvynx/video-agent-skills",
+      "commit": "f4542923f7f796a1fa0e544cbfc1109d5eec87d8",
+      "license": "MIT",
+      "license_sha256": "8954db8e00ded3d5a4716d66e9409c4007e458a7bb1c028cd6a254033011cc2b",
+      "packages": [
+        {
+          "id": "melvynx/broll",
+          "name": "broll",
+          "source_path": "skills/broll",
+          "entrypoint_sha256": "21e0547b1728256260bc15979f9694677582dac8853415a847d41c2adb431f1e",
+          "content_sha256": "3cfc3ea4ff78c5b035fccd040fa307a5f814bdda801d255021c488afc9368914"
+        },
+        {
+          "id": "melvynx/clips",
+          "name": "clips",
+          "source_path": "skills/clips",
+          "entrypoint_sha256": "ab3f228f95e270d51f5eed221023b5416909fd17a411f2ed28d4bebade1255aa",
+          "content_sha256": "f5a3349df7df7df1ab0a0dc99b1be229aaeaa6ac63ebfff0ff554f2a50be158d"
+        },
+        {
+          "id": "melvynx/codex-images",
+          "name": "codex-images",
+          "source_path": "skills/codex-images",
+          "entrypoint_sha256": "c8c56ebbf5a016b4bad271ab24db862d2d469ea6153aad95521da84f07ed6abf",
+          "content_sha256": "bde4b899733dd73ad969cda0783794e91a4bae890f5fc4fbd38d19611a8cb683"
+        },
+        {
+          "id": "melvynx/editing",
+          "name": "editing",
+          "source_path": "skills/editing",
+          "entrypoint_sha256": "1c8c1dbd6c3f14282dc5b72b5e8c3ca90e9617b6a8a389c4503e899d54f58beb",
+          "content_sha256": "92677b49df1e382a47a267e360e11f381322caaf36367ca554138a9c79500238"
+        },
+        {
+          "id": "melvynx/insta-audit",
+          "name": "insta-audit",
+          "source_path": "skills/insta-audit",
+          "entrypoint_sha256": "e3971b76f6c6b239c8753366d6fab7de3bf05f82f502b8dbce66460a7ab57bbc",
+          "content_sha256": "dc4bcf0f88077132277a189d82f20c2b3cf5c9173fe5dd9de921fbc14fc74962"
+        },
+        {
+          "id": "melvynx/outliers",
+          "name": "outliers",
+          "source_path": "skills/outliers",
+          "entrypoint_sha256": "16377bf12baac3a3330ec11a24a13f4fbc1312839570d8f10b3a1f9758cd4fa0",
+          "content_sha256": "a1cdbbe8c3ca3ddac8f4af7bb28602103b3aa3cf0dd19db79dfef911d4e0c458"
+        },
+        {
+          "id": "melvynx/publish",
+          "name": "publish",
+          "source_path": "skills/publish",
+          "entrypoint_sha256": "c08a69423be2b50f08379348b4fa5f464e87c20d408089760dc7ed9143821aba",
+          "content_sha256": "e8e69726761dd9f71e644cf271490ebcc77839b8068d661128c409869d87a064"
+        },
+        {
+          "id": "melvynx/short-editing",
+          "name": "short-editing",
+          "source_path": "skills/short-editing",
+          "entrypoint_sha256": "28f01905fbe4bc249368bd7550b0e621d0e3726219306e65112ae6bff523d03f",
+          "content_sha256": "177b5edf1d8e47c838805e1b9aac81360be93e4de7c74c5913a6c1f941614829"
+        },
+        {
+          "id": "melvynx/short-translate",
+          "name": "short-translate",
+          "source_path": "skills/short-translate",
+          "entrypoint_sha256": "2078df7665b42c0096cfd5c8276652777debf1950cc25bd7bac55776c3ecf62d",
+          "content_sha256": "94ae92f46dfc9c29cd5ecb6c5f70dc0eb1b2740a68f72e5de7aa74ed7101f42b"
+        },
+        {
+          "id": "melvynx/steal",
+          "name": "steal",
+          "source_path": "skills/steal",
+          "entrypoint_sha256": "1c732d6df6c974b2cc3a7ae0678e9d1775ef3d01c9dbf53c021b221067371012",
+          "content_sha256": "9dbdab647a1d53469e262bf828c804e0f1264024cca6e1cc6a9c2014bcc9f297"
+        },
+        {
+          "id": "melvynx/studio-script",
+          "name": "studio-script",
+          "source_path": "skills/studio-script",
+          "entrypoint_sha256": "c44586f146348a8ea7d1323f65ed2bf28d5bf93872dcdfdf4ec1cba5ee8b0d56",
+          "content_sha256": "edf38cdf91dee86110fb8c5bf2d9e47509944b5f3e3ff92014aec8da750ca591"
+        },
+        {
+          "id": "melvynx/studio-setup",
+          "name": "studio-setup",
+          "source_path": "skills/studio-setup",
+          "entrypoint_sha256": "f65095df982e981a6241b910198b3e1ed72da47bd5d6fe58cc78d0bada641890",
+          "content_sha256": "322174c638b237f0351ed879de3223e1c632600e736529b966da78d2bf211354"
+        },
+        {
+          "id": "melvynx/vox",
+          "name": "vox",
+          "source_path": "skills/vox",
+          "entrypoint_sha256": "2222155f4d83ae2ac3d8a456ca85c4de615a32c7bec4f466be5f73850b31ff66",
+          "content_sha256": "185fbab9b40ccd640a8165d5e8c6cdd129539874cf13c940d420eea4450f563d"
+        }
+      ]
+    },
+    {
+      "key": "sunithvs",
+      "repo": "sunithvs/video-agent-skill",
+      "url": "https://github.com/sunithvs/video-agent-skill",
+      "commit": "6ccc8f2fdbd177a3306377e866c8724a512bffcb",
+      "license": "Apache-2.0",
+      "license_sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+      "packages": [
+        {
+          "id": "sunithvs/reel-editor",
+          "name": "reel-editor",
+          "source_path": "plugins/video-editor/skills/reel-editor",
+          "entrypoint_sha256": "3c2972511d4e12e82a96ac2c1b0175e1fcfda0faccb10e8f7e285d34bebb7eb3",
+          "content_sha256": "cceda506ea05f65ccf7ab933b370a3571a19701dbb7c5de44a9bdfd374a358a2"
+        },
+        {
+          "id": "sunithvs/youtube-editor",
+          "name": "youtube-editor",
+          "source_path": "plugins/video-editor/skills/youtube-editor",
+          "entrypoint_sha256": "4f22e9301f4eb7bb598a080e2b1b0d0f996d5af7ccd01baf3a5adf052c04365f",
+          "content_sha256": "210fa9c39b584a37997874be88b3eaaf5922ce9ec9684123ee649f12b909c52e"
+        }
+      ]
+    },
+    {
+      "key": "wallstreet",
+      "repo": "HeyChengC/wallstreet-explainer",
+      "url": "https://github.com/HeyChengC/wallstreet-explainer",
+      "commit": "f39845abd45dab3c9ce62587aa5d02f6afe82612",
+      "license": "MIT; third-party example media excluded",
+      "license_sha256": "40e69723c44e144e90a69dd839fa30f9aa55facaa353b1323f86651cb38c7b1f",
+      "packages": [
+        {
+          "id": "wallstreet/wallstreet-explainer",
+          "name": "wallstreet-explainer",
+          "source_path": ".",
+          "entrypoint_sha256": "acd31c8c1196ff96de45ec83e2fdb461b098c37110fd5b78e8f9e3551ecb6828",
+          "content_sha256": "b135bc3bdc5637e0fc396a77c889be1c3226cd6ea1f15d41d40a8c6c781558d9"
+        }
+      ]
+    },
+    {
+      "key": "motion-prompt",
+      "repo": "showheyohtaki/motion-prompt",
+      "url": "https://github.com/showheyohtaki/motion-prompt",
+      "commit": "7819d3879eb7d5a1475c11c001bedffb5cab64af",
+      "license": "MIT",
+      "license_sha256": "b687b1f10c8ea46937216c0e2b999b706572e0430d7a8d2934fc10cb96af4f46",
+      "packages": [
+        {
+          "id": "motion-prompt/motion-prompt",
+          "name": "motion-prompt",
+          "source_path": "skills/motion-prompt",
+          "entrypoint_sha256": "5029cb5dff28552676aefd1bcdeefee8fca3e05aac66046c1002fb30464708a5",
+          "content_sha256": "0eba6ec105dfd49ac0f96c1a3bcdb5ecb0daea35c2dbf5e6afce50a152a26a34"
+        }
+      ]
+    },
+    {
+      "key": "agentic",
+      "repo": "real-simple-labs/agentic-video-editing",
+      "url": "https://github.com/real-simple-labs/agentic-video-editing",
+      "commit": "b3ec5ec03b81d48ebb0a9c332832e401fbf1805a",
+      "license": "MIT",
+      "license_sha256": "05eeb9f3339d7a89c90ae71f307fd5c49ec53e1d2ec659aa8eee3409d60812e7",
+      "packages": [
+        {
+          "id": "agentic/apply-notes",
+          "name": "apply-notes",
+          "source_path": "skills/apply-notes",
+          "entrypoint_sha256": "9fda0225eacc7797aa8753b3b93a5f44d643e5e215d002b71d901718cd0ea7b5",
+          "content_sha256": "9c8330d130e2e48b242ed9a119184352b0b1ccc1dc5c3da17646f1088a78471c"
+        },
+        {
+          "id": "agentic/ve-video-edit-general",
+          "name": "ve-video-edit-general",
+          "source_path": "skills/ve-video-edit-general",
+          "entrypoint_sha256": "fd3eb5b87f8907a4480a050b8d5779f1b9977bbb405cee59ec4b5dc9d40be375",
+          "content_sha256": "54bd3bf5e15f575f372803b69a1aa6cc049f73547a97f9cb0554ae91c2e670b6"
+        },
+        {
+          "id": "agentic/video-qa",
+          "name": "video-qa",
+          "source_path": "skills/video-qa",
+          "entrypoint_sha256": "9b9770f9c4163ef90c1642d868b35a30728de8743f6ca7893264fa77fad9f778",
+          "content_sha256": "e20c42bdda199643c9258fd1e5a5b65becc4dd2bf5b998430c6f82ed61d1e896"
+        }
+      ]
+    },
+    {
+      "key": "resolve",
+      "repo": "appariciojunior/video-editor-skills",
+      "url": "https://github.com/appariciojunior/video-editor-skills",
+      "commit": "6709678d7d5b169149e13480428e12b0f09a47f0",
+      "license": "CC-BY-NC-4.0",
+      "license_sha256": "aa2d89d6b5ddb8730f2c3da68dd0da463d9a7b41eb18b30418b013d49f74494d",
+      "packages": [
+        {
+          "id": "resolve/broll",
+          "name": "broll",
+          "source_path": "skills/broll",
+          "entrypoint_sha256": "66dace70b661af2dd12d678ef97b267cbbc2a8a29aab0f4b89aadc5f07a9e194",
+          "content_sha256": "83de4ec208301039a615009eb9a551d946b488c6f32e433db5e6a1216a253f08"
+        },
+        {
+          "id": "resolve/captions",
+          "name": "captions",
+          "source_path": "skills/captions",
+          "entrypoint_sha256": "259fdaba23cea2f8c684b6fbbc741b2199faf59352c71896375779ecdbb0176f",
+          "content_sha256": "405be19db306eb79cda7b8097f7fe6678297eb5ff0031e3315ba3e3e4369b8ef"
+        },
+        {
+          "id": "resolve/edit-video",
+          "name": "edit-video",
+          "source_path": "skills/edit-video",
+          "entrypoint_sha256": "972c1bd6f8f47ec7531bbae088c8e1f457f8c255f8750a97b39907e4d27f06fd",
+          "content_sha256": "69b6f3b65033c5e9099514092966518ec44d93fadee8550296d823f34c5d4e26"
+        },
+        {
+          "id": "resolve/figma-roundtrip",
+          "name": "figma-roundtrip",
+          "source_path": "skills/figma-roundtrip",
+          "entrypoint_sha256": "de84e48e9b3d72e6c98af4cccb74ce91e7a9f92cd654870a7788f1ca5b1bbd87",
+          "content_sha256": "c77f974d7f6ee7d14718f6e3f27b3b4dcc0f2ef24b9f2c802799306cedfe30f8"
+        },
+        {
+          "id": "resolve/motion-overlays",
+          "name": "motion-overlays",
+          "source_path": "skills/motion-overlays",
+          "entrypoint_sha256": "2c9bec2becbf5c41b367c750ea52d42a38b438404a658af8636b34a63a372152",
+          "content_sha256": "08c13c468869e601ed0ff41e29569837f67b3345e6895a24bf4ac9fc24961a35"
+        },
+        {
+          "id": "resolve/music-and-sound",
+          "name": "music-and-sound",
+          "source_path": "skills/music-and-sound",
+          "entrypoint_sha256": "4053ad091ed97b30a2ef7755ffbd926ebf31ffc289aedfa333073ca5e1356940",
+          "content_sha256": "a634c7b12336830aa27d29c82e0c995cf0a09016922354d306e16d7e16c013e7"
+        },
+        {
+          "id": "resolve/resolve-scripting",
+          "name": "resolve-scripting",
+          "source_path": "skills/resolve-scripting",
+          "entrypoint_sha256": "393bede2a2932ac056fb0c43bc4ed2c9a1d7395fdc9efe96c06278608b48885f",
+          "content_sha256": "b2fe6c19463cfbb4dd66a400a2bc5b77d0c9f1428564516a8897e09257cb6961"
+        },
+        {
+          "id": "resolve/rough-cut",
+          "name": "rough-cut",
+          "source_path": "skills/rough-cut",
+          "entrypoint_sha256": "e3d8a1428e3e084900abd4da7fe1d8e9f3029df9f999f66971533073993cf60c",
+          "content_sha256": "220d2bf8858c9d12f86b804131a78167498dbea5d79c227f35239fe194673989"
+        },
+        {
+          "id": "resolve/video-editor-setup",
+          "name": "video-editor-setup",
+          "source_path": "skills/video-editor-setup",
+          "entrypoint_sha256": "c60475baa5306334f92b223d310e37dccc040292b3afb5ad19fe05d9ba4b8a83",
+          "content_sha256": "031fd62586bba9706bfe35b6b3c46ac8d968b626240e11a20b85cd0683b07d30"
+        },
+        {
+          "id": "resolve/vlog-pacing",
+          "name": "vlog-pacing",
+          "source_path": "skills/vlog-pacing",
+          "entrypoint_sha256": "8c7fc8182dcf1373182a6027cd48e12c2c8948f7f74ceced8ffae1d75b6f42b0",
+          "content_sha256": "2c1d02e2199e0378aad7e6ed7ce524be7f142accb419056d21ec43f4cd4505ef"
+        },
+        {
+          "id": "resolve/voice-and-audio",
+          "name": "voice-and-audio",
+          "source_path": "skills/voice-and-audio",
+          "entrypoint_sha256": "bba7bccd3930c0c085c8256eeac887e435cb9d80f00e688b46bfbe8092572bf2",
+          "content_sha256": "b317fbadf86dc5ce311791760330b4034ab3dfaa0941f2d07f0ea2e698066eef"
+        },
+        {
+          "id": "resolve/youtube-export",
+          "name": "youtube-export",
+          "source_path": "skills/youtube-export",
+          "entrypoint_sha256": "bbb49157a75199b30eb8331a614929609748a4841019e9618245f6469ea78afd",
+          "content_sha256": "7f4223b8ffc9e30927303ee631ad1dca5dabc194875f024d35c9e3445e167ba8"
+        }
+      ]
+    },
+    {
+      "key": "openchatcut",
+      "repo": "0xsline/OpenChatCut",
+      "url": "https://github.com/0xsline/OpenChatCut",
+      "commit": "9242a95aea248ff3a8dab495514384e858320d47",
+      "license": "AGPL-3.0-or-later",
+      "license_sha256": "0d96a4ff68ad6d4b6f1f30f713b18d5184912ba8dd389f86aa7710db079abcb0",
+      "packages": [
+        {
+          "id": "openchatcut/openchatcut",
+          "name": "openchatcut",
+          "source_path": "skills/openchatcut",
+          "entrypoint_sha256": "e959a0292458d3126220f704a4c88c9db360782b0730d4ccd21589e388262aa8",
+          "content_sha256": "dd720a96b686ba1fb3abbfd09c13beee0aa9cbf6b120ed9a9139902cacc88394"
+        }
+      ]
+    }
+  ],
+  "groups": [
+    {
+      "id": "melvynx-raw",
+      "profile": "melvynx-raw-vi",
+      "source": "melvynx",
+      "title": "A - Melvynx: raw / short-form / B-roll",
+      "readiness": "guidance-installed; native engine setup separate",
+      "packages": [
+        "melvynx/broll",
+        "melvynx/clips",
+        "melvynx/codex-images",
+        "melvynx/editing",
+        "melvynx/insta-audit",
+        "melvynx/outliers",
+        "melvynx/publish",
+        "melvynx/short-editing",
+        "melvynx/short-translate",
+        "melvynx/steal",
+        "melvynx/studio-script",
+        "melvynx/studio-setup",
+        "melvynx/vox"
+      ]
+    },
+    {
+      "id": "sunithvs-raw",
+      "profile": "sunithvs-raw-vi",
+      "source": "sunithvs",
+      "title": "B - Sunithvs: talking-head / kinetic text",
+      "readiness": "guidance-installed; upstream macOS/Linux scripts need a Windows port",
+      "packages": [
+        "sunithvs/reel-editor",
+        "sunithvs/youtube-editor"
+      ]
+    },
+    {
+      "id": "wallstreet-finance",
+      "profile": "wallstreet-finance-vi",
+      "source": "wallstreet",
+      "title": "C - Wallstreet: financial / technology explainer",
+      "readiness": "guidance-installed; native compositor and model setup separate",
+      "packages": [
+        "wallstreet/wallstreet-explainer"
+      ]
+    },
+    {
+      "id": "motion-catalog",
+      "profile": "motion-catalog-vi",
+      "source": "motion-prompt",
+      "title": "D - Motion Prompt: numbered motion / transitions",
+      "readiness": "catalog CLI installed; selected moves need porting into the project",
+      "packages": [
+        "motion-prompt/motion-prompt"
+      ]
+    },
+    {
+      "id": "review-variants",
+      "profile": "review-variants-vi",
+      "source": "agentic",
+      "title": "E - Agentic: ad variants / timestamp feedback",
+      "readiness": "guidance-installed; upstream Apple Silicon tools unavailable on Windows",
+      "packages": [
+        "agentic/apply-notes",
+        "agentic/ve-video-edit-general",
+        "agentic/video-qa"
+      ]
+    },
+    {
+      "id": "resolve-roughcut",
+      "profile": "resolve-roughcut-vi",
+      "source": "resolve",
+      "title": "F - Resolve: rough-cut / captions / audio",
+      "readiness": "requires DaVinci Resolve and scripting setup; noncommercial-only license",
+      "packages": [
+        "resolve/broll",
+        "resolve/captions",
+        "resolve/edit-video",
+        "resolve/figma-roundtrip",
+        "resolve/motion-overlays",
+        "resolve/music-and-sound",
+        "resolve/resolve-scripting",
+        "resolve/rough-cut",
+        "resolve/video-editor-setup",
+        "resolve/vlog-pacing",
+        "resolve/voice-and-audio",
+        "resolve/youtube-export"
+      ]
+    }
+  ],
+  "policy_ref": "core/skill-library.md",
+  "integrations": [
+    {
+      "id": "openchatcut",
+      "packages": [
+        "openchatcut/openchatcut"
+      ],
+      "status": "connector-skill-installed; app/MCP not configured",
+      "guide": "core/openchatcut.md"
+    }
+  ]
+}

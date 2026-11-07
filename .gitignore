@@ -24,6 +24,8 @@ jobs/*
 !jobs/.gitkeep
 .test-output/
 .studio/
+comparisons/*
+!comparisons/.gitkeep
 temp_inputs/
 motion/node_modules/
 motion/.cache/

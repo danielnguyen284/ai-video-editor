@@ -20,13 +20,23 @@ def main():
     parser = argparse.ArgumentParser(description="Local role/skill video editing tools. The agent handles creative decisions.")
     commands = parser.add_subparsers(dest="command", required=True)
     commands.add_parser("doctor", help="Check local tools; does not download a model")
+    skills = commands.add_parser("skills", help="List installed upstream packages, skill groups and runtime limits")
+    skills.add_argument("--full", action="store_true", help="Verify all pinned package bytes")
+    compare = commands.add_parser("compare-new", help="Create independent full-length drafts for 2–6 selected groups; does not edit/render")
+    compare.add_argument("comparison_id")
+    compare.add_argument("--video", required=True)
+    compare.add_argument("--profiles", nargs="+", required=True)
+    compare.add_argument("--brief", required=True)
+    compare.add_argument("--format", choices=("vertical", "horizontal"), required=True)
+    compare_view = commands.add_parser("compare-view", help="Refresh a local comparison page using each job's latest exported revision")
+    compare_view.add_argument("comparison_id")
     studio = commands.add_parser("editor", help="Open the local visual timeline editor")
     studio.add_argument("--port", type=int, default=8765)
     studio.add_argument("--no-open", action="store_true")
     new = commands.add_parser("new-job", help="Copy input, resolve skills and create an initial full-length plan")
     new.add_argument("job_id")
     new.add_argument("--video", required=True)
-    new.add_argument("--profile", default="finance-premium-vi")
+    new.add_argument("--profile", required=True, help="Choose a skill group profile; no automatic house style")
     new.add_argument("--brief", default="")
     speech = commands.add_parser("transcribe", help="Local STT; downloads the model on first use")
     speech.add_argument("job_id")
@@ -92,7 +102,17 @@ def main():
             print("Semantic vision: optional Ollama model or agent inspection of sampled frames; no model downloaded by doctor.")
             print("Visual editor: " + ("ready; run ai_editor.py editor" if (ROOT / "editor/build/index.html").is_file() else "optional; run scripts/setup.ps1 -WithEditor"))
             return 1 if missing else 0
-        if args.command == "editor":
+        if args.command == "skills":
+            from core.skill_library import inventory
+            print(json.dumps(inventory(full=args.full), ensure_ascii=False, indent=2))
+        elif args.command == "compare-new":
+            from core.comparisons import create_comparison
+            print(create_comparison(args.comparison_id, args.video, args.profiles, args.brief, args.format))
+            print("Drafts created; setup, creative choices and actual edits/exports remain pending.")
+        elif args.command == "compare-view":
+            from core.comparisons import comparison_view
+            print(comparison_view(args.comparison_id))
+        elif args.command == "editor":
             from core.editor_server import serve
             serve(args.port, not args.no_open)
         elif args.command == "new-job":

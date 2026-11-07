@@ -37,7 +37,7 @@ def questions(revision):
             "visuals": ["Framing and captions only", "Image/logo/B-roll overlays", "Remotion metric card, bar chart, lower third or KineticScene text/cards/progress"],
             "audio": ["Voice only", "Supplied background music with ducking", "Propose audio treatment before applying it"],
         },
-        "note": "Only the current profile's skill pair is guaranteed installed. Check skills/ before offering another as ready to use.",
+        "note": "Profiles select separate upstream skill groups. Check ai_editor.py skills and core/skill-library.md for installed files versus native runtime availability. Existing jobs use frozen snapshots.",
     }
 
 

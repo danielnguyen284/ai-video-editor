@@ -58,6 +58,7 @@ def make_server(port=8765, root=ROOT):
                     folder = store.folder(query['job'])
                     state['media'] = read_json(folder/'job.json')['input']['media']
                     state['source'] = read_json(folder/'job.json')['assets'][0]['path']
+                    state['profile'] = read_json(folder/'revisions'/state['base_revision']/'resolved-config.json')['profile']
                     state['setup'] = read_json(folder/'editor/setup.json') if (folder/'editor/setup.json').is_file() else read_json(folder/'revisions'/state['base_revision']/'decisions.json')['setup']
                     state['library'] = self.library(folder)
                     from core.adapters.ffmpeg import probe

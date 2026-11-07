@@ -78,6 +78,7 @@ def resolve_profile(profile_id):
     profile = read_json(ROOT / "profiles" / (identifier(profile_id) + ".json"))
     snapshots = []
     settings = {}
+    upstream_packages = []
     for kind in ("style", "domain"):
         selected = profile["skills"][kind]
         prefix, name = selected["id"].split("/", 1)
@@ -95,7 +96,11 @@ def resolve_profile(profile_id):
             if path.is_file() and path.suffix in (".md", ".txt", ".json")
         }
         snapshots.append({"id": metadata["id"], "version": metadata["version"], "files": files})
+        upstream_packages.extend(metadata.get("upstream_packages", []))
         settings = merge(settings, metadata.get("defaults", {}))
+    if upstream_packages:
+        from core.skill_library import snapshot
+        snapshots.extend(snapshot(package_id, ROOT) for package_id in dict.fromkeys(upstream_packages))
     preference = read_json(within(ROOT, profile["preferences_ref"]))
     settings = merge(settings, preference.get("overrides", {}))
     settings = merge(settings, profile.get("overrides", {}))

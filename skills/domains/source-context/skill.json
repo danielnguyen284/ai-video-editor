@@ -1,0 +1,7 @@
+{
+  "id": "domain/source-context",
+  "version": "1.0.0",
+  "kind": "domain",
+  "entrypoint": "SKILL.md",
+  "defaults": {}
+}

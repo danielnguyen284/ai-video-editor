@@ -7,7 +7,7 @@ Bộ dựng video bằng role + skill và **AI Editor Studio chạy local**. AI 
 ## Editor trực quan
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\setup.ps1 -WithEditor
+powershell -ExecutionPolicy Bypass -File .\scripts\setup.ps1 -WithEditor -WithSkills
 .\.venv\Scripts\python.exe ai_editor.py editor
 ```
 
@@ -25,63 +25,66 @@ Mở [AI Editor Studio trên máy](http://127.0.0.1:8765). Tạo project bằng 
 
 **Dùng qua agent:** lựa chọn phương án dựng/research được hỏi trong IDE, CLI thực hiện kế hoạch đã chọn. Hiểu ngữ nghĩa hình ảnh có hai cách: AI trong IDE xem ảnh trích hoặc gọi model vision đã cài qua Ollama. CLI không tự hiểu prompt dựng. Animated punch zoom, crop tự di chuyển theo mặt, đổi tốc độ và SFX theo timeline chưa được triển khai.
 
-Bốn style riêng đã có:
+## Thư viện skill mới và các phương án so sánh
 
-| Profile | Cách dựng |
-|---|---|
-| `finance-premium-vi` | Premium-explainer: caption theo lời nói thành cụm, motion tiết chế |
-| `finance-visual-keyword-vi` | Visual-keyword: tiêu đề hiện ngay đầu, chỉ nhấn keyword lớn, chèn ảnh minh họa theo ý; không chạy toàn bộ lời nói thành caption |
-| `talking-head-pro-vi` / `finance-talking-head-pro-vi` | Talking-head-pro: caption cụm nghĩa, nhấn ý và xen infographic theo mẫu s1 công khai |
-| `kinetic-motion-vi` / `finance-kinetic-motion-vi` | Kinetic-motion: typography lớn, thẻ reveal và progress; không tự thêm caption toàn transcript |
+Bộ style/domain tự viết trước đây đã được gỡ khỏi danh sách dùng cho job mới. **32 skill từ 6 repo đang mở trong Chrome**, cùng skill kết nối OpenChatCut, đã được cài local và ghim commit/checksum. Các nhóm:
 
-Hai style mới được tự viết từ thông tin và demo trên [trang tham chiếu Mikelikedesign](https://sheetgo1.my.canva.site/skill-edit-video-pro-ver-1-mikelikedesign), đọc qua Chrome ngày 27/10/2026. Đây là skill nội bộ của dự án, không phải file sản phẩm trả phí. Phân tích và giới hạn quan sát nằm trong [talking-head-pro](skills/styles/talking-head-pro/references/source-analysis.md) và [kinetic-motion](skills/styles/kinetic-motion/references/source-analysis.md). Không kèm media/font/nhạc/source của tác giả. Profile không có tiền tố finance dùng domain general; profile chỉ thêm lựa chọn, không tự áp cho job cũ.
+| Nhóm | Profile | Mục đích |
+|---|---|---|
+| A · Melvynx | `melvynx-raw-vi` | Raw/short-form, script, B-roll, học style và repurpose |
+| B · Sunithvs | `sunithvs-raw-vi` | Talking-head, kinetic text, Reels/YouTube |
+| C · Wallstreet | `wallstreet-finance-vi` | Presenter, bằng chứng, số liệu và explainer tài chính/công nghệ |
+| D · Motion Prompt | `motion-catalog-vi` | Chọn motion/chuyển cảnh theo ID và port vào composition |
+| E · Agentic | `review-variants-vi` | Biến thể ad/hook, feedback theo timestamp |
+| F · Resolve | `resolve-roughcut-vi` | Rough cut, caption và âm thanh trong DaVinci Resolve |
 
-[Skill visual-keyword](skills/styles/visual-keyword/SKILL.md) có ghi chú phân tích mẫu tham chiếu trong package; video `sample.mp4` không đi kèm bản ZIP. Ảnh minh họa được chọn theo nội dung từng job. Tiêu đề/keyword dùng PNG chữ hoặc cue ASS riêng; không cần cài thêm engine render.
+**Đã cài skill không có nghĩa đã cài engine của mọi repo.** Sunithvs/Agentic có phần phụ thuộc macOS; Resolve cần ứng dụng/scripting và nguồn có license phi thương mại. Từng nhóm, giới hạn chạy Windows và cách dùng nằm ở [core/skill-library.md](core/skill-library.md). Chọn một nhóm cho mỗi output; chỉ đọc helper liên quan. Các bản dựng cũ tiếp tục dùng snapshot của chính chúng; font, template và renderer kỹ thuật vẫn được giữ.
 
-## 1. Bạn bắt đầu như thế nào?
+Nguồn upstream cài trong `.tools/skill-library/`, không commit media/ví dụ của bên thứ ba. [skills/library.json](skills/library.json) lưu nguồn, phiên bản và checksum. Trên máy mới hoặc sau khi nhận ZIP, khôi phục qua helper skill-installer của Codex:
 
-1. Mở thư mục `ai-editor` sau khi giải nén trong IDE có AI agent.
-2. Đặt video vào `inbox/`, ví dụ `inbox/raw.mp4`. Hoặc đưa agent đường dẫn tuyệt đối đến video; lệnh tạo job sẽ **copy** vào dự án, giữ file gốc.
-3. Gửi prompt như sau:
-
-> Dựng `inbox/raw.mp4` thành video TikTok tài chính tiếng Việt. Dùng profile `finance-premium-vi`, tạo job `hpg-001`. Cắt đoạn nói vấp và lặp, giữ đúng ý, thêm caption. Khung hình cố định nên bỏ footage analysis. Xuất bản đầu cho tôi xem.
-
-Hoặc chọn style tiêu đề + keyword + ảnh:
-
-> Dựng `inbox/raw.mp4` bằng profile `finance-visual-keyword-vi`: tiêu đề xuất hiện ngay đầu, chỉ hiện keyword lớn và ảnh minh họa theo ý. Đưa tôi chọn tiêu đề, keyword, ảnh và phương án cắt trước khi dựng.
-
-Hoặc dùng hai style mới:
-
-> Dựng `inbox/raw.mp4` bằng profile `talking-head-pro-vi`. Đề xuất bản caption gọn và bản xen infographic, để tôi chọn lời mở, chữ, hình, âm thanh và phương án cắt.
-
-> Dùng profile `kinetic-motion-vi` cho video voice `inbox/voice-video.mp4`, đề xuất motion phủ kín khung dọc với chữ lớn và thẻ UI. Đưa storyboard, màu và timing cho tôi chọn trước khi dựng.
-
-KineticScene chạy được chữ/thẻ/progress, không kèm vật thể 3D hoặc mọi chuyển cảnh trong demo. Với script/audio chưa có video, có thể chuẩn bị storyboard; `new-job` hiện vẫn cần video nguồn. [Hướng dẫn thực thi Kinetic](skills/styles/kinetic-motion/references/implementation.md) ghi rõ request, layer và các giới hạn.
-
-Agent đọc `AGENTS.md` và hỏi theo từng nhóm nhỏ: style/lĩnh vực/định dạng, có phân tích footage và phiên âm không, cách cắt/caption/visual/âm thanh. Mỗi câu có phương án gợi ý và cho phép trả lời theo ý riêng. Phần bạn đã chọn rõ trong prompt được giữ lại, không hỏi trùng.
-
-Sau khi có transcript, AI đưa phương án dựng cụ thể để bạn chọn, ví dụ giữ thứ tự gốc hoặc đổi hook và thứ tự luận điểm. Các quyết định được lưu trong `decisions.json` của revision. Nếu bạn chọn STT, model Whisper tải ở lần phiên âm đầu; CPU chạy được nhưng tốc độ tùy máy.
-
-4. Video nằm ở:
-
-```text
-jobs/hpg-001/revisions/r001/renders/video.mp4
+```powershell
+.\.venv\Scripts\python.exe scripts/install_skill_library.py
+.\.venv\Scripts\python.exe scripts/install_skill_library.py --check
+.\.venv\Scripts\python.exe ai_editor.py skills --full
 ```
 
-5. Xem file rồi prompt tiếp, chỉ rõ bản bạn đã xem:
+Có thể dùng flag `-WithSkills` trong setup. Các file đã chỉnh khác checksum được giữ nguyên và báo lỗi, không bị ghi đè. Các skill được định tuyến qua AGENTS/profile trong dự án; skill toàn cục không thay đổi. Chúng có thể được agent đọc ở lượt chat tiếp theo trong workspace này.
 
-> Với job `hpg-001`, bản `r001`: bỏ 2 giây đầu, giây 15–20 cắt nhanh hơn và nhạc nhỏ lại. Tạo bản mới, giữ bản cũ.
+**OpenChatCut là ứng viên thay giao diện.** Skill kết nối đã cài; app và MCP chưa cấu hình. [Đánh giá kỹ thuật và phương án chuyển dữ liệu](core/openchatcut.md) chỉ ra những phần cần map, đặc biệt khóa vùng đã duyệt và custom motion. Studio hiện tại tiếp tục phục vụ job cũ.
 
-Nếu chưa có nhạc, bỏ yêu cầu chỉnh nhạc hoặc đặt file nhạc vào `jobs/hpg-001/assets/music/` và đưa đường dẫn. Không có nhạc đi kèm dự án.
+## 1. Bắt đầu một video hoặc nhiều bản thử
 
-6. Khi ưng ý: “Dùng bản r002 làm final.” Bạn không cần tự sửa JSON hoặc học FFmpeg; phần lệnh bên dưới dành cho lúc muốn tự chạy/chẩn đoán.
+Đặt video vào `inbox/raw.mp4`, hoặc dùng **Chọn video từ máy…** trong Studio. AI copy nguồn và giữ file gốc. Ví dụ prompt:
+
+> Dựng `inbox/raw.mp4` bằng nhóm `melvynx-raw-vi`. Đọc transcript và đưa phương án cắt, caption, hình minh họa và âm thanh để tôi chọn. Giữ tiếng Việt, nói rõ những hiệu ứng chưa chạy được trên máy này.
+
+Hoặc tạo các draft độc lập từ cùng nguồn để sau này dựng A/B/C:
+
+```powershell
+.\.venv\Scripts\python.exe ai_editor.py compare-new thu-01 --video .\inbox\raw.mp4 --profiles melvynx-raw-vi sunithvs-raw-vi wallstreet-finance-vi --format vertical --brief "So sánh ba cách dựng; giữ chung nội dung và âm thanh"
+```
+
+Lệnh tạo `jobs/thu-01-a`, `jobs/thu-01-b`, `jobs/thu-01-c` với cùng nguồn và định dạng. Đây là draft đầy đủ footage, caption tắt, chưa tự cắt/STT/render. Người dùng chọn hoặc giao phạm vi quyết định; AI mới dựng từng phương án. [Workflow so sánh và giới hạn](core/skill-library.md#tạo-nhiều-output-để-so-sánh).
+
+Khi đã có các bản xuất, chạy:
+
+```powershell
+.\.venv\Scripts\python.exe ai_editor.py compare-view thu-01
+```
+
+Mở HTML được trả về để xem cạnh nhau/phát cùng lúc. Trang dùng bản đã xuất mới nhất của từng job; không tự chọn bản thắng. Những bản có cut khác nhau không tự căn theo cùng câu nói.
+
+Video nằm ở `jobs/JOB/revisions/rNNN/renders/video.mp4`. Xem rồi prompt tiếp, ví dụ: “Job `thu-01-a`, bản `r001`: giây 12–15 bỏ ảnh, giữ phần còn lại; tạo revision mới.” Mốc feedback là timeline bản đã xem. Với project có lock, dùng revision/EditorStore và giữ khóa; không nhập lại raw để vượt vùng đã duyệt.
+
+Lựa chọn trong brief đã rõ được giữ lại. Các mục chưa rõ về output, Footage Analyst, STT, research, cắt, chữ/hình và âm thanh vẫn được hỏi theo nhóm nhỏ. Không có role AI chấm video hoặc vòng tự sửa chất lượng; bạn xem output và quyết định sửa tiếp/final.
+
 
 ## 2. Thiết lập môi trường
 
 Cần Python 3.11 trở lên; phần Remotion cần Node.js/npm và browser Chromium. Workspace đã chạy với Python 3.13, Node.js 22 và Chrome. Từ thư mục dự án trên Windows:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\setup.ps1 -WithTranscription -WithMotion -WithVision
+powershell -ExecutionPolicy Bypass -File .\scripts\setup.ps1 -WithTranscription -WithMotion -WithVision -WithSkills
 .\.venv\Scripts\python.exe ai_editor.py doctor
 ```
 
@@ -130,18 +133,17 @@ Nếu đã có **thư mục model đầy đủ ở định dạng faster-whisper
 ```text
 AGENTS.md                     Agent đọc hướng dẫn thao tác
 ai_editor.py                  CLI Python
-ai-video-editor-project.md    Thiết kế tổng thể và lộ trình
+ai-video-editor-project.md    Bản thiết kế gốc (lưu trữ)
 core/
   roles/                      Trách nhiệm từng role
   adapters/                   FFmpeg, STT, visual, Remotion, footage và Ollama
   schemas/edit-plan.md        Cấu trúc plan, khả năng thực tế
 skills/
-  styles/premium-explainer/    Hướng dẫn style + tham số mặc định
-  styles/visual-keyword/       Tiêu đề, keyword lớn, ảnh minh họa + helper tạo PNG chữ
-  styles/talking-head-pro/     Caption cụm nghĩa + infographic, phân tích mẫu s1
-  styles/kinetic-motion/       Typography/thẻ/progress + hướng dẫn KineticScene
-  domains/finance/             Hướng dẫn lĩnh vực + glossary + nguồn
-  domains/general/             Nội dung tổng quát, phân biệt ví dụ và bằng chứng
+  library.json                Commit, license, checksum và nhóm upstream
+  styles/                     Sáu nhóm định tuyến, mỗi output chọn một nhóm
+  domains/source-context/     Ngữ cảnh lấy từ brief, không ép domain mặc định
+.tools/skill-library/         Source upstream đã cài, không commit
+comparisons/                  Manifest và trang so sánh local (runtime)
 profiles/                     Ghép skill, ngôn ngữ và cấu hình xuất
 motion/                       Project React/TypeScript, template và Node renderer
 editor/                       React + Remotion Player, timeline và bảng thuộc tính
@@ -165,7 +167,7 @@ Skill nằm trong dự án, được agent đọc qua `AGENTS.md`/profile. Chưa
 .\.venv\Scripts\python.exe ai_editor.py doctor
 
 # Tạo job: copy raw, khóa skill/config và tạo plan giữ nguyên toàn bộ video
-.\.venv\Scripts\python.exe ai_editor.py new-job hpg-001 --video .\inbox\raw.mp4 --profile finance-premium-vi --brief "TikTok tài chính, caption tiếng Việt"
+.\.venv\Scripts\python.exe ai_editor.py new-job hpg-001 --video .\inbox\raw.mp4 --profile melvynx-raw-vi --brief "TikTok tài chính, caption tiếng Việt"
 
 # Hiển thị các quyết định đang chờ và gợi ý lựa chọn
 .\.venv\Scripts\python.exe ai_editor.py choices hpg-001

@@ -1,0 +1,35 @@
+{
+  "id": "style/melvynx-raw",
+  "version": "1.0.0",
+  "kind": "style",
+  "entrypoint": "SKILL.md",
+  "upstream_packages": [
+    "melvynx/broll",
+    "melvynx/clips",
+    "melvynx/codex-images",
+    "melvynx/editing",
+    "melvynx/insta-audit",
+    "melvynx/outliers",
+    "melvynx/publish",
+    "melvynx/short-editing",
+    "melvynx/short-translate",
+    "melvynx/steal",
+    "melvynx/studio-script",
+    "melvynx/studio-setup",
+    "melvynx/vox"
+  ],
+  "defaults": {
+    "captions": {
+      "font_name": "Be Vietnam Pro",
+      "font_size": 50,
+      "margin_v": 320,
+      "max_chars": 28,
+      "max_lines": 2,
+      "outline_width": 2
+    },
+    "audio": {
+      "voice_gain": 1,
+      "music": null
+    }
+  }
+}

@@ -30,9 +30,9 @@
     <li>
       <h2>Cài công cụ một lần</h2>
       <p>Mở terminal PowerShell tại thư mục <code>ai-editor</code>, chạy:</p>
-      <pre><code>powershell -ExecutionPolicy Bypass -File .\scripts\setup.ps1 -WithTranscription -WithVision
+      <pre><code>powershell -ExecutionPolicy Bypass -File .\scripts\setup.ps1 -WithTranscription -WithVision -WithSkills
 .\.venv\Scripts\python.exe ai_editor.py doctor</code></pre>
-      <p>Để có editor trực quan, chạy thêm:</p><pre><code>powershell -ExecutionPolicy Bypass -File .\scripts\setup.ps1 -WithEditor
+      <p>Để có editor trực quan, chạy thêm:</p><pre><code>powershell -ExecutionPolicy Bypass -File .\scripts\setup.ps1 -WithEditor -WithSkills
 .\.venv\Scripts\python.exe ai_editor.py editor</code></pre>
       <p class="note">Sau setup, nhấp shortcut <strong>AI Editor Studio</strong> trên desktop hoặc <code>Open AI Editor.cmd</code> trong thư mục dự án. App tự bật server ẩn, mở browser và khôi phục project/vị trí xem gần nhất. Mở nhiều lần dùng lại server. Editor có autosave, undo/redo và khóa vùng. Nếu mở bằng CLI thì giữ terminal chạy. Xem <a href="core/visual-editor.md">hướng dẫn sửa trực quan</a>. Setup editor không tải model Whisper.</p>
       <aside class="whisper"><strong>Whisper cần tải model riêng — không có sẵn trong ZIP.</strong><p>Lệnh setup chỉ cài thư viện STT. Khi bạn chọn phiên âm lần đầu, AI hỏi model rồi mới chạy: <code>large-v3</code> khoảng <strong>3 GB</strong>, hoặc <code>small</code> nhẹ hơn. Cần mạng, dung lượng đĩa và thời gian chờ tải; chạy large-v3 trên CPU cũng có thể chậm. Các video sau tái sử dụng model đã cache nếu còn đầy đủ. <code>doctor</code> báo STT đã cài không có nghĩa model đã tải. <a href="README.md#whisper">Chi tiết và lệnh dùng model</a>.</p></aside>
@@ -42,14 +42,17 @@
       <h2>Đặt video &amp; gửi yêu cầu cho AI</h2>
       <p>Trong Studio, bấm Tạo project → <strong>Chọn video từ máy…</strong>. Nút <strong>+</strong> ở Tài nguyên chọn thêm nhiều video/ảnh/nhạc, có thumbnail để nhận diện. Hoặc copy video vào <code>inbox/raw.mp4</code> rồi chọn style trong prompt:</p>
       <div class="styles">
-        <div class="style"><strong>Visual keyword</strong><code>finance-visual-keyword-vi</code><p>Tiêu đề ngay đầu, keyword lớn, ảnh minh họa chọn lọc.</p></div>
-        <div class="style"><strong>Premium explainer</strong><code>finance-premium-vi</code><p>Caption theo lời nói thành cụm, dựng tiết chế.</p></div>
-        <div class="style"><strong>Talking-head pro</strong><code>talking-head-pro-vi</code><p>Caption gọn, nhấn ý và infographic. Bản tài chính: <code>finance-talking-head-pro-vi</code>.</p></div>
-        <div class="style"><strong>Kinetic motion</strong><code>kinetic-motion-vi</code><p>Chữ lớn, thẻ UI xuất hiện lần lượt, progress. Bản tài chính: <code>finance-kinetic-motion-vi</code>.</p></div>
+        <div class="style"><strong>Melvynx raw và short-form</strong><code>melvynx-raw-vi</code></div>
+        <div class="style"><strong>Sunithvs talking-head và kinetic text</strong><code>sunithvs-raw-vi</code></div>
+        <div class="style"><strong>Wallstreet explainer tài chính và công nghệ</strong><code>wallstreet-finance-vi</code></div>
+        <div class="style"><strong>Motion Prompt: motion và chuyển cảnh có mã số</strong><code>motion-catalog-vi</code></div>
+        <div class="style"><strong>Agentic: biến thể quảng cáo và feedback theo mốc</strong><code>review-variants-vi</code></div>
+        <div class="style"><strong>DaVinci Resolve: rough cut, caption và âm thanh</strong><code>resolve-roughcut-vi</code></div>
       </div>
-      <blockquote>Dựng <code>inbox/raw.mp4</code> bằng profile <code>finance-visual-keyword-vi</code>, tạo job <code>video-001</code>. Đọc AGENTS.md và đưa lựa chọn cho tôi trước khi dựng: tiêu đề, keyword, ảnh minh họa, cách cắt và âm thanh.</blockquote>
-      <p class="note">Bạn trả lời các lựa chọn trong chat; AI chuẩn bị plan và chạy CLI. Không cần tự sửa JSON. Ảnh và nhạc được chọn theo từng video; gói không kèm sẵn thư viện media.</p>
-      <p class="note">Hai style mới tự viết từ mẫu công khai, không kèm file/source trả phí của tác giả. <a href="skills/styles/kinetic-motion/SKILL.md">Kinetic motion</a> dùng Remotion KineticScene (cần setup thêm <code>-WithMotion</code>); chưa có vật thể 3D, zoom camera hoặc SFX theo timeline. CLI vẫn cần video nguồn; nếu mới có script thì bắt đầu bằng storyboard.</p>
+      <blockquote>Dựng <code>inbox/raw.mp4</code> bằng nhóm <code>melvynx-raw-vi</code>. Đọc transcript và đưa phương án cắt, caption, hình và âm thanh để tôi chọn.</blockquote>
+      <p class="note">Có 32 skill thuộc 6 repo, cùng skill kết nối OpenChatCut, được ghim phiên bản. Skill đã cài không đồng nghĩa mọi engine đã chạy được trên Windows: Sunithvs/Agentic có phần cần macOS; Resolve cần app/scripting và có license phi thương mại. Xem <a href="core/skill-library.md">nhóm skill và giới hạn thực tế</a>. Bộ style cũ đã nghỉ dùng; job cũ giữ snapshot và khóa.</p>
+      <p>Muốn nhiều bản thử: yêu cầu AI dùng cùng raw/brief để tạo A/B/C theo các nhóm đã chọn. Sau khi dựng và xuất riêng từng job, dùng <code>compare-view</code> để mở trang xem cạnh nhau. <a href="core/skill-library.md#tạo-nhiều-output-để-so-sánh">Lệnh tạo draft và so sánh</a>.</p>
+      <p class="note">OpenChatCut đang được cân nhắc làm UI tiếp theo; mới cài skill kết nối, chưa thay app hoặc chuyển project. <a href="core/openchatcut.md">Đánh giá và phương án chuyển</a>.</p>
     </li>
     <li>
       <h2>Xem bản xuất &amp; yêu cầu sửa</h2>
@@ -61,7 +64,7 @@
     </li>
   </ol>
   <p class="note">Bản ZIP chỉ gồm mã nguồn và hướng dẫn. Môi trường, model, video/job cá nhân và cache sẽ được tạo trên máy người dùng. CLI dựng local không cần khóa LLM; AI agent trong IDE do bạn cung cấp.</p>
-  <footer><a href="README.md">README chi tiết</a><a href="AGENTS.md">Hướng dẫn cho AI</a><a href="profiles/finance-visual-keyword-vi.json">Profile visual keyword</a></footer>
+  <footer><a href="README.md">README chi tiết</a><a href="AGENTS.md">Hướng dẫn cho AI</a><a href="core/skill-library.md">Thư viện skill</a></footer>
 </main>
 </body>
 </html>

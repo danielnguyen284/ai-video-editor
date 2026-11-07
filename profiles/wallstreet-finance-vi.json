@@ -1,0 +1,27 @@
+{
+  "id": "wallstreet-finance-vi",
+  "display_name": "Wallstreet explainer tài chính và công nghệ",
+  "readiness_note": "Skill và kit đã cài. Compositor và model riêng của upstream chưa được setup.",
+  "version": "2.0.0",
+  "language": "vi",
+  "skill_group": "wallstreet-finance",
+  "skills": {
+    "style": {
+      "id": "style/wallstreet-finance",
+      "version": "1.0.0"
+    },
+    "domain": {
+      "id": "domain/source-context",
+      "version": "1.0.0"
+    }
+  },
+  "export": {
+    "preset": "vertical-shortform",
+    "width": 1080,
+    "height": 1920,
+    "fps": 30,
+    "fit": "pad"
+  },
+  "overrides": {},
+  "preferences_ref": "preferences/default.json"
+}

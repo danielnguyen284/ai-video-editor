@@ -1,0 +1,24 @@
+{
+  "id": "style/sunithvs-raw",
+  "version": "1.0.0",
+  "kind": "style",
+  "entrypoint": "SKILL.md",
+  "upstream_packages": [
+    "sunithvs/reel-editor",
+    "sunithvs/youtube-editor"
+  ],
+  "defaults": {
+    "captions": {
+      "font_name": "Be Vietnam Pro",
+      "font_size": 50,
+      "margin_v": 320,
+      "max_chars": 28,
+      "max_lines": 2,
+      "outline_width": 2
+    },
+    "audio": {
+      "voice_gain": 1,
+      "music": null
+    }
+  }
+}

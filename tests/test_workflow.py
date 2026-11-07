@@ -76,7 +76,7 @@ class RenderTests(unittest.TestCase):
             raise AssertionError(result.stderr.decode("utf-8", errors="replace"))
         return result.stdout
 
-    def make_job(self, name, source=None, profile="finance-premium-vi"):
+    def make_job(self, name, source=None, profile="melvynx-raw-vi"):
         with patch("core.jobs.ROOT", self.base):
             folder = create_job(name, source or self.source, profile, "Synthetic test only")
         revision = folder / "revisions/r001"
@@ -107,14 +107,16 @@ class RenderTests(unittest.TestCase):
         record_choice(revision, "edit-plan", "Test user selected this concrete proposal", summary="Selected exact cuts, captions and audio for synthetic test")
 
     def test_visual_keyword_title_at_first_frame_and_only_selected_words(self):
-        folder, revision, plan = self.make_job("visual-keyword", profile="finance-visual-keyword-vi")
+        folder, revision, plan = self.make_job("visual-keyword", profile="melvynx-raw-vi")
+        # Select sparse text explicitly; the new group does not impose the retired style's defaults.
+        plan["captions"]["items"] = []
         transcript = {"segments": [{"start":0.1,"end":3.9,"text":"FULL TRANSCRIPT MUST NOT APPEAR"}]}
         # Even with an existing transcript, this style has no automatic word cues.
         self.assertEqual(mapped_captions(plan, transcript), [])
         write_json(folder / "transcript/cleaned.json", transcript)
         text_file = folder / "assets/title.txt"
         text_file.write_text("TI\u00caU \u0110\u1ec0", encoding="utf-8")
-        helper = ROOT / "skills/styles/visual-keyword/scripts/render_text.py"
+        helper = ROOT / "scripts/render_text.py"
         title = folder / "assets/visuals/title.png"
         command = [sys.executable, str(helper), "--text-file",str(text_file),"--output",str(title),"--width","160","--height","50","--font-size","20","--background","#15803D","--outline-width","0"]
         self.run_tool(command)
@@ -366,7 +368,8 @@ class RenderTests(unittest.TestCase):
         from core.adapters.motion import render_motion
         if not (ROOT / "motion/node_modules/@remotion/renderer").is_dir():
             self.skipTest("Optional Remotion dependencies not installed")
-        folder, revision, plan = self.make_job("kinetic-scene", profile="kinetic-motion-vi")
+        folder, revision, plan = self.make_job("kinetic-scene", profile="motion-catalog-vi")
+        plan["captions"]["items"] = []
         self.assertEqual(mapped_captions(plan, {"segments": [{"start": 0, "end": 4, "text": "No automatic captions"}]}), [])
         self.select_setup(revision, plan)
         assets = []
