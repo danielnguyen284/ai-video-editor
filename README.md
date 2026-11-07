@@ -4,6 +4,8 @@ Bộ dựng video bằng role + skill và **AI Editor Studio chạy local**. AI 
 
 **Mới nhận bản ZIP:** giải nén rồi mở [HUONG-DAN.html](HUONG-DAN.html). Chạy setup để cài editor/công cụ trên máy mới. AI dựng nháp và xử lý prompt qua IDE; giao diện local cho phép bạn tự sửa trực quan.
 
+**Flow đã chốt cho yêu cầu “edit giúp tôi một video”:** agent đọc [flow mặc định](core/editing-workflow.md), dùng lại **large-v3 local** và bộ công cụ đã có, tự phân tích nguồn rồi đề xuất **một phương án để bạn duyệt trước khi dựng**. Không hỏi lại model ở mỗi clip. Các lựa chọn thường trực nằm ở [preferences/workflow.json](preferences/workflow.json); prompt mới và quyết định cũ của job được ưu tiên. Agent được phiên âm chuẩn bị trước creative setup, nhưng việc đó không duyệt cut, chữ, hình hay âm thanh.
+
 ## Editor trực quan
 
 ```powershell
@@ -54,6 +56,8 @@ Trong Codex CLI/IDE, mở đúng workspace `ai-editor`, gõ `$video-` rồi ch�
 
 > Dùng $video-melvynx-short-editing dựng `inbox/raw.mp4` thành TikTok tiếng Việt. Đề xuất cách cắt, caption và hình minh họa để tôi chọn.
 
+Hoặc chỉ cần chỉ định video và nói “edit giúp tôi video này”; agent dùng flow trên và tự đề xuất nhóm phù hợp. Không cần lặp model/engine ở mỗi prompt. Nếu chưa rõ video nào hoặc có một quyết định không thể suy ra từ nguồn, agent chỉ hỏi phần còn thiếu đó.
+
 Không cần gõ tên profile JSON vào menu `$`; profile dùng khi tạo job qua CLI/Studio. Trong ChatGPT, dùng menu `@` nếu host hiển thị skill. Nếu danh sách vẫn cũ, khởi động lại Codex và mở lại đúng repo. [Cách gọi và vị trí nhận diện skill chính thức](https://learn.chatgpt.com/docs/build-skills). Lệnh phục hồi riêng entrypoint: `.venv/Scripts/python.exe scripts/register_skill_shortcuts.py`.
 
 **OpenChatCut là ứng viên thay giao diện.** Skill kết nối đã cài; app và MCP chưa cấu hình. [Đánh giá kỹ thuật và phương án chuyển dữ liệu](core/openchatcut.md) chỉ ra những phần cần map, đặc biệt khóa vùng đã duyệt và custom motion. Studio hiện tại tiếp tục phục vụ job cũ.
@@ -96,35 +100,43 @@ powershell -ExecutionPolicy Bypass -File .\scripts\setup.ps1 -WithTranscription 
 
 Script tạo `.venv/`, tải FFmpeg/ffprobe portable vào `.tools/ffmpeg/bin/` và đối chiếu SHA-256. Các flag cài thêm STT, Remotion và OpenCV; có thể bỏ flag cho phần không sử dụng. Remotion dùng Chrome/Edge sẵn có hoặc tải Chrome Headless Shell khi render lần đầu trên máy chưa có browser. Script không sửa PATH hệ thống và không cần quyền admin.
 
-Bản chia sẻ chỉ kèm mã nguồn và hướng dẫn. Mỗi máy cần chạy setup để tạo `.venv/`, tải FFmpeg và cài các phần tùy chọn. Model Whisper tải khi phiên âm lần đầu; large-v3 khoảng 3 GB và CPU có thể chạy chậm. Ollama vision cần cài riêng nếu được chọn. `doctor` không tải model, không chạy review video.
+Bản chia sẻ chỉ kèm mã nguồn và hướng dẫn. Mỗi máy cần chạy setup để tạo `.venv/`, tải FFmpeg và cài các phần tùy chọn. Large-v3 local cần được chuẩn bị riêng (khoảng 3 GB), CPU có thể chạy chậm; CLI không âm thầm tải khi thư mục model đã chọn bị thiếu. Ollama vision cần cài riêng nếu được chọn. `doctor` không tải model, không chạy review video.
 
-Nguồn công cụ: [FFmpeg downloads](https://ffmpeg.org/download.html), [Windows build từ Gyan](https://www.gyan.dev/ffmpeg/builds/), [faster-whisper](https://github.com/SYSTRAN/faster-whisper). STT tải model qua Hugging Face khi dùng tên model lần đầu. Có thể truyền đường dẫn model đã tải bằng `--model`.
+Nguồn công cụ: [FFmpeg downloads](https://ffmpeg.org/download.html), [Windows build từ Gyan](https://www.gyan.dev/ffmpeg/builds/), [faster-whisper](https://github.com/SYSTRAN/faster-whisper). Mặc định dùng model local; override bằng tên model khác có thể tải weights qua Hugging Face. Có thể truyền một thư mục model tương thích đã chuẩn bị bằng `--model`.
 
 ### Whisper
 
 **Cài thư viện và tải model là hai bước khác nhau.** Dự án dùng `faster-whisper` để phiên âm local:
 
 1. `setup.ps1 -WithTranscription` chỉ cài thư viện STT và các phụ thuộc, **chưa tải model Whisper**. Nếu đã có `.venv`, cũng có thể cài bằng `.\.venv\Scripts\python.exe -m pip install -r requirements-stt.txt`.
-2. Khi người dùng đã chọn phiên âm và model, lệnh `transcribe` sẽ tải model đó từ Hugging Face nếu chưa có. Model **không nằm trong ZIP**, nên mỗi máy mới cần mạng và dung lượng đĩa cho lần tải đầu.
+2. Flow hiện tại dùng large-v3 trong thư mục local đã chuẩn bị. Model **không nằm trong ZIP**, nên mỗi máy mới phải phục hồi weights hoặc tải đúng model đã chọn trước khi dùng. Chỉ khi user chủ động override sang tên model khác, faster-whisper mới có thể tải weights chưa cache trong lệnh đó.
 
 | Lựa chọn | Điều cần biết |
 |---|---|
-| `large-v3` | Mặc định của CLI; file model khoảng **3 GB**, cần thêm dung lượng cho thư viện/cache. Ưu tiên chất lượng, có thể phiên âm chậm và tốn RAM trên CPU. |
-| `small` | Model nhỏ hơn, phù hợp khi muốn giảm thời gian tải và tài nguyên; chất lượng nhận dạng có thể khác. Chỉ chuyển khi người dùng chọn. |
+| `large-v3` | Đã chọn thường trực ở dạng local; file model khoảng **3 GB**, cần thêm dung lượng cho thư viện/cache. Không hỏi lại ở mỗi video. |
+| `small` hoặc model khác | Chỉ là override khi user chủ động yêu cầu; không là phương án fallback tự động khi model đã chọn bị thiếu hoặc chạy chậm. |
 
-Agent phải giải thích và hỏi model trước khi tải lần đầu, trừ khi bạn đã chọn rõ. Sau khi có job và đã ghi nhận setup chọn phiên âm, agent chạy **một** phương án:
+**Model đã được chọn thường trực là large-v3 local.** Với video lời nói cần phiên âm, dùng lại transcript đúng nguồn nếu có; nếu chưa có, agent chạy lệnh sau, không hỏi chọn model lại:
 
 ```powershell
-# Chọn large-v3: lần đầu tự tải khoảng 3 GB, rồi mới bắt đầu phiên âm
+.\.venv\Scripts\python.exe ai_editor.py transcribe video-001
+```
+
+CLI ưu tiên thư mục `.tools/models/faster-whisper-large-v3` theo workflow đã chụp của job. Nếu thiếu/incomplete model, lệnh dừng trước khi chạy model và báo file thiếu; không tự tải hoặc đổi sang model khác. Trên máy mới, cài thư viện STT không đồng nghĩa có weights. Việc tải lại đúng model đã chọn cần được xử lý như một bước khôi phục môi trường.
+
+Các lệnh bên dưới là **override rõ ràng**, chỉ dùng khi bạn yêu cầu một model/thư mục khác:
+
+```powershell
+# large-v3 cũng resolve về thư mục local đã chọn
 .\.venv\Scripts\python.exe ai_editor.py transcribe video-001 --model large-v3
 
 # Hoặc small, nếu người dùng chọn model nhẹ hơn
 .\.venv\Scripts\python.exe ai_editor.py transcribe video-001 --model small
 ```
 
-Thời gian tải phụ thuộc mạng; thời gian phiên âm phụ thuộc độ dài video, CPU và RAM. Giai đoạn tải chưa có transcript là bình thường. Nếu xảy ra lỗi tải, agent báo lỗi và thử lại đúng model đã chọn; không âm thầm đổi model hoặc xóa cache. Không chạy lại để ghi đè khi `transcript/raw.json` đã có.
+Thời gian phiên âm phụ thuộc độ dài video, CPU và RAM. Nếu một model khác được yêu cầu rõ bằng tên, faster-whisper có thể tải weights chưa cache; đó là giai đoạn tải, khác với inference. Không âm thầm đổi model hoặc xóa cache, không chạy lại để ghi đè khi `transcript/raw.json` đã có.
 
-Model được tái sử dụng từ cache khi còn đầy đủ và đúng phiên bản; không phải tải lại toàn bộ cho từng video. Cache Hugging Face mặc định trên Windows là `%USERPROFILE%\.cache\huggingface\hub`, có thể thay đổi bởi cấu hình `HF_HOME`/`HF_HUB_CACHE`. Nếu xóa cache, đổi model hoặc có phiên bản model mới, có thể phát sinh tải thêm. Xem [cách cache hoạt động](https://huggingface.co/docs/huggingface_hub/en/guides/manage-cache).
+Với override theo tên, model được tái sử dụng từ cache khi còn đầy đủ; không phải tải lại toàn bộ cho từng video. Cache Hugging Face mặc định trên Windows là `%USERPROFILE%\.cache\huggingface\hub`, có thể thay đổi bởi cấu hình `HF_HOME`/`HF_HUB_CACHE`. Xóa cache, đổi model hoặc version có thể phát sinh tải thêm cho override đó. Large-v3 local của flow mặc định vẫn dùng thư mục đã chọn. Xem [cách cache hoạt động](https://huggingface.co/docs/huggingface_hub/en/guides/manage-cache).
 
 Nếu đã có **thư mục model đầy đủ ở định dạng faster-whisper/CTranslate2**, truyền đường dẫn thay cho tên model:
 
@@ -132,7 +144,7 @@ Nếu đã có **thư mục model đầy đủ ở định dạng faster-whisper
 .\.venv\Scripts\python.exe ai_editor.py transcribe video-001 --model .\.tools\models\faster-whisper-large-v3
 ```
 
-Đây là đường dẫn ví dụ khi model đã được chuẩn bị riêng, không phải thư mục mà setup tự tạo. `doctor` kiểm tra thư viện/công cụ; báo STT đã cài không có nghĩa là model đã tải xong. Nếu dùng transcript có sẵn hoặc bỏ phiên âm, không cần tải model Whisper. Chi tiết tải theo tên model và dùng thư mục local có trong [tài liệu faster-whisper](https://github.com/SYSTRAN/faster-whisper#model-conversion).
+Thư mục này là mặc định đã chọn của workspace; setup không tự tạo/download weights. `doctor` kiểm tra thư viện/công cụ; báo STT đã cài không có nghĩa model hợp lệ đã có. Nếu dùng transcript có sẵn hoặc bỏ phiên âm, không cần tải model. Xem [flow và provenance](core/editing-workflow.md) cùng [tài liệu faster-whisper](https://github.com/SYSTRAN/faster-whisper#model-conversion).
 
 ## 3. Cấu trúc dự án
 
@@ -153,7 +165,7 @@ comparisons/                  Manifest và trang so sánh local (runtime)
 profiles/                     Ghép skill, ngôn ngữ và cấu hình xuất
 motion/                       Project React/TypeScript, template và Node renderer
 editor/                       React + Remotion Player, timeline và bảng thuộc tính
-preferences/                  Preference có phạm vi của người dùng
+preferences/                  Preference và workflow kỹ thuật thường trực
 inbox/                        Bạn đặt raw video ở đây
 jobs/                         Input, transcript, asset, feedback và từng revision
 scripts/                      Thiết lập môi trường
@@ -162,7 +174,7 @@ tests/                        Test code/cắt ghép bằng video tổng hợp
 
 Các role dùng chung: Editor, Transcriber, Researcher, Animator, Sound Designer, Finisher. AI luôn đưa lựa chọn dùng/bỏ Footage Analyst; video khung cố định được gợi ý bỏ, quyết định thuộc về bạn. Bạn có thể tự sửa qua editor, xem bản xuất rồi prompt tiếp.
 
-Quy ước hội thoại và lưu lựa chọn nằm trong `core/interaction.md`. AI chờ khi bạn chưa trả lời, chỉ làm phần chuẩn bị độc lập. Bạn cũng có thể chọn “AI tự chọn trong phạm vi này”; AI chỉ tự quyết trong phạm vi bạn đã giao.
+Flow cố định ở `core/editing-workflow.md`; cách ghi lựa chọn ở `core/interaction.md`. Agent tự phân tích và đưa một phương án để bạn duyệt, áp dụng các thiết lập kỹ thuật thường trực không hỏi lại. Khi chưa duyệt phương án, chỉ làm phần chuẩn bị độc lập. Nếu bạn giao quyền tự chọn trong một phạm vi cụ thể, agent làm trong phạm vi đó.
 
 Skill nằm trong dự án, được agent đọc qua `AGENTS.md`/profile. Chưa cài chúng thành global skills của IDE. Một agent có thể lần lượt đảm nhận các role; không cần chạy nhiều agent/model cùng lúc.
 
@@ -178,10 +190,10 @@ Skill nằm trong dự án, được agent đọc qua `AGENTS.md`/profile. Chưa
 # Hiển thị các quyết định đang chờ và gợi ý lựa chọn
 .\.venv\Scripts\python.exe ai_editor.py choices hpg-001
 
-# Agent hỏi người dùng; sau khi có câu trả lời, ghi setup theo core/interaction.md
+# Agent dùng large-v3 local để phân tích, đề xuất một phương án; sau khi duyệt, ghi setup
 # decide --stage setup --answers PATH --user-message "câu trả lời thực tế"
 
-# Phiên âm: lần đầu tải model, mặc định CPU/int8
+# Phiên âm chuẩn bị bằng large-v3 local, CPU/int8; không ghi đè transcript
 .\.venv\Scripts\python.exe ai_editor.py transcribe hpg-001
 
 # Agent đọc transcript, chọn cut, sửa plan r001 và bật captions.enabled

@@ -1,25 +1,25 @@
 # User-choice workflow
 
-The user wants the AI to ask and offer options throughout editing. The Editor recommends, the user chooses, the roles execute those choices. Apply this to editing decisions, not to routine command syntax or error repair needed to execute a selected operation.
+The selected flow is: the agent analyzes the source and proposes one concrete treatment; the user approves or adjusts it before the agent builds. Read [editing-workflow.md](editing-workflow.md) and `preferences/workflow.json` first. Apply standing large-v3 local/tooling choices without re-asking. Keep creative choices distinct from technical preparation.
 
 TikTok is the user's primary platform for suggestions. For these briefs, read [the TikTok guide](platforms/tiktok.md), then tailor questions to the opening, useful duration, 9:16 framing and captions clear of existing text and platform controls. A stored platform preference is not a selected output setting. Preserve explicit choices from the current job and avoid imposing a fixed short duration or a faster style.
 
 ## How to ask
 
-- Present two or three short options per question, with a recommendation and its practical effect. Allow a custom answer. For a decision already clearly selected in the prompt, record that answer instead of repeating the question.
-- Batch related questions; do not dump ten questions at once. When available, use the runtime's question UI. Otherwise provide concise numbered choices in chat and wait for the reply.
+- Present one recommended treatment derived from the actual source/transcript, including its practical effect. Add an alternative only for a material tradeoff. Allow a custom adjustment; do not repeat choices already made in the prompt or standing instructions.
+- Ask brief intake questions only for genuinely missing information; batch remaining creative choices into the treatment proposal rather than an upfront ten-question checklist. Use the runtime's question UI when useful.
 - Never interpret silence, elapsed time, a recommended option or a profile default as an answer. While waiting, only prepare work independent of that choice, such as reading media metadata.
-- Preferences and prior jobs inform suggestions. They do not authorize silent choices for a new job. An explicit answer within the current job carries over until the user changes it.
+- General preferences and prior examples inform suggestions; they are not automatically selected creative choices. Explicit standing instructions in `preferences/workflow.json` do authorize their stated technical scope. Current prompt and existing job decisions override them. An explicit answer within the job carries over until changed.
 - The user may explicitly delegate a decision, e.g. “choose cuts within this style for me.” Record that scope. Ask again for changes outside it.
 - Verify installed files and runtime capability separately before offering a group as ready. Read `core/skill-library.md` for the six upstream groups, profiles and Windows limitations; `ai_editor.py skills --full` checks pinned packages. A group selects an editorial vocabulary, not every upstream layout, language, CTA, speed or cloud provider. For comparisons, clarify what varies and what stays shared, then create independent drafts/outputs without mixing every group's defaults. Visual options in the existing renderer remain image/logo/B-roll layers, static text PNGs via `scripts/render_text.py`, and Remotion MetricCard/BarChart/LowerThird/Keyword/KineticScene. Footage options remain local signals, IDE image inspection or a selected installed Ollama model. Unsupported camera animation, speed changes, external engines and services need explicit implementation/setup before being represented as working.
 
 ## Decision groups
 
-1. **Direction:** style, domain, target format/duration. Show the installed choice and the option to supply a reference/create another skill. Ask how to frame the source: retain the image with padding or center crop where appropriate.
-2. **Processing:** image/footage analysis, local transcription or supplied transcript, research or supplied materials only. Explain the first model download if local STT is chosen.
+1. **Prepare:** identify the source/job, probe its metadata and check existing decisions/transcripts/locks. A candidate group/profile can scaffold a pending analysis job; do not treat it as a selected style.
+2. **Processing:** use the standing local large-v3 choice for needed speech transcription without a model questionnaire. Reuse supplied/matching transcript; honor no-STT work. A missing local model requires restoring that same selection, not a new model recommendation.
    If footage analysis is selected, ask local signals only, AI in the IDE inspecting sampled frames, or a selected Ollama vision model. Do not start model downloads or send frames to a remote endpoint based on a local-only choice.
-3. **Edit treatment:** original order or new hook/structure, degree of cutting, caption style, additional visuals and voice/music treatment. Ask about supplied assets before referring to nonexistent files.
-4. **Concrete edit proposal:** after reading the transcript, propose the actual source ranges, hook, overlays/audio and expected length. Offer two or three meaningful alternatives when they exist. If the user already selected detailed cuts or delegated this scope, execute that instruction without a duplicate question.
+3. **Propose:** after reading the transcript, recommend one group, output/framing, hook/structure, actual keep/cut ranges, caption/keyword, visuals/audio and expected length. Include optional footage/research modes and any missing assets/engine limitations in the same reviewable treatment.
+4. **Approve then build:** wait for approval or adjustments unless already selected/delegated within scope. Record the real reply plus the relevant standing-default references. Never record the agent's proposal as a user reply.
 
 Technical details can be derived from selected choices: frame arithmetic, codec flags, temporary filenames and executing FFmpeg do not each need another question. A change in the story, selected take, framing, added claim, style or audio treatment outside the chosen scope does.
 
@@ -44,7 +44,7 @@ Each revision has `decisions.json` with setup answers, the concrete selected pro
 }
 ```
 
-This is a shape example, **not a preselected answer**. The agent writes the actual answers to `revisions/rNNN/setup-answers.json` after the user's replies and runs:
+This is a shape example, **not a preselected answer**. After the treatment is approved, the agent writes the actual chosen answers to `revisions/rNNN/setup-answers.json` and runs:
 
 ```text
 ai_editor.py decide JOB --revision r001 --stage setup --answers PATH --user-message "actual user reply/answers"
@@ -61,7 +61,7 @@ ai_editor.py render JOB --revision r001
 
 The CLI records the exact plan/config hashes and refuses a different plan. It does not verify that the quoted user message is authentic or semantically interpret the prose choices: following the dialogue and applying all selected decisions is the agent's responsibility. Never use the command to fabricate an answer or bypass pending questions.
 
-`choices JOB` displays pending decisions and suggestions. `render --dry-run` prepares the commands without exporting video while a decision is pending. Existing jobs without a decision file must collect user choices before exporting; do not invent answers for them.
+`choices JOB` displays the standing workflow separately from pending creative decisions and suggestions. `transcribe JOB` can run before full setup under the standing local-processing policy, logging actual model provenance without approving any edit. `render --dry-run` prepares commands while a decision is pending. Existing jobs without decisions still need a real treatment approval before exporting.
 
 ## After export
 

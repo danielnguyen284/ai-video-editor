@@ -16,6 +16,7 @@ Read the current installed package under `skills/` before changing it, and the j
 | A user, project or brand preference that should not redefine the style for everyone | Scoped editorial preferences/notes, with the source and intended scope; not a global style default |
 | Source-specific facts, actual title wording, ticker corrections, an exact image or song, a timestamp cut or a one-video placement | The job's plan, transcript, assets or feedback; retain reusable principles only if the request supports them |
 | A rendering limitation or setup problem | Technical implementation/setup documentation; change code and tests only when implementation is part of the task |
+| An explicitly authorized standing workflow/technical choice, e.g. always reuse large-v3 local | `core/editing-workflow.md` and `preferences/workflow.json`, with a version and snapshot for new jobs; do not repeat it as an unresolved choice |
 
 For a local style correction, extract a conditional rule when it is supported by the feedback, rather than copying literal coordinates or content. For example, “this keyword covers the speaker's face” can reinforce selecting clear space around the subject; it does not establish one fixed `y` position for all videos. If the skill already says that, record that it is covered and avoid a duplicate rule.
 

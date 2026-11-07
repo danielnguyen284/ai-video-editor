@@ -2,6 +2,8 @@
 
 Thư viện skill hiện dùng các nhóm upstream trong [skill-library.md](skill-library.md); profile cũ đã nghỉ dùng cho job mới. Job cũ vẫn đọc profile/skill snapshot từ revision và giữ nguyên khóa. [Đánh giá OpenChatCut](openchatcut.md) là hướng cân nhắc thay giao diện; app/MCP và cầu nối project chưa được triển khai, Studio vẫn là UI đang chạy.
 
+Agent bắt đầu bằng [editing-workflow.md](editing-workflow.md): áp dụng các lựa chọn kỹ thuật thường trực, phân tích và đề xuất một phương án để user duyệt trước khi dựng. Phiên âm chuẩn bị không tự chọn caption, bố cục hay âm thanh. Các vùng đã khóa vẫn có hiệu lực.
+
 Người dùng đã chọn workflow ngày 27/10/2026: “Editor riêng trong dự án: AI dựng nháp, bạn sửa timeline/chữ/hình và khóa phần đã ưng ngay trong giao diện local.” Mục tiêu là giữ project có thể sửa từng lớp, xem ngay và giữ các vùng đã duyệt. Đây là lựa chọn workflow; không tự chọn style, lời mở, cắt, nhạc hoặc phân tích footage cho job mới.
 
 ## Mở editor

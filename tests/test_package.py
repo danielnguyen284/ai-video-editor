@@ -20,6 +20,7 @@ class PackageTests(unittest.TestCase):
         self.root = Path(self.temp.name).resolve()
         assert self.root.is_relative_to(base) and self.root != base
         for name in package_release.ROOT_FILES:
+            (self.root/name).parent.mkdir(parents=True, exist_ok=True)
             (self.root/name).write_text("source fixture",encoding="utf-8")
         files = {
             "core/main.py":"print('source')", "skills/style/SKILL.md":"style instructions",
@@ -60,6 +61,7 @@ class PackageTests(unittest.TestCase):
             self.assertIn("ai-editor/motion/public/fonts/OFL.txt",names)
             self.assertIn("ai-editor/skills/style/SKILL.md",names)
             self.assertIn("ai-editor/.agents/skills/video-example/SKILL.md",names)
+            self.assertIn("ai-editor/preferences/workflow.json",names)
             self.assertIn("ai-editor/editor/src/main.tsx",names)
             self.assertIn("ai-editor/editor/package-lock.json",names)
             self.assertFalse(any(name.startswith("ai-editor/editor/build/") for name in names))

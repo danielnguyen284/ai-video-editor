@@ -38,10 +38,10 @@ def main():
     new.add_argument("--video", required=True)
     new.add_argument("--profile", required=True, help="Choose a skill group profile; no automatic house style")
     new.add_argument("--brief", default="")
-    speech = commands.add_parser("transcribe", help="Local STT; downloads the model on first use")
+    speech = commands.add_parser("transcribe", help="Use the standing local large-v3 model; preserve existing transcripts")
     speech.add_argument("job_id")
-    speech.add_argument("--model", default="large-v3")
-    speech.add_argument("--device", choices=("cpu", "cuda"), default="cpu")
+    speech.add_argument("--model", help="Explicit model/directory override; defaults to the standing local large-v3 directory")
+    speech.add_argument("--device", choices=("cpu", "cuda"), help="Override the standing CPU setting")
     revision = commands.add_parser("revision", help="Clone a plan; the editor must apply the feedback afterwards")
     revision.add_argument("job_id")
     revision.add_argument("--feedback", required=True)
@@ -117,7 +117,7 @@ def main():
             serve(args.port, not args.no_open)
         elif args.command == "new-job":
             result = create_job(args.job_id, args.video, args.profile, args.brief)
-            print(f"Created: {result}\nSetup choices are pending. Present options to the user before transcription or editing.")
+            print(f"Created: {result}\nCreative setup is pending. Follow core/editing-workflow.md; standing local transcription can run before the edit proposal.")
         elif args.command == "transcribe":
             print(transcribe(job_folder(args.job_id), args.model, args.device))
         elif args.command == "revision":

@@ -22,6 +22,7 @@
   <div class="eyebrow">AI Editor · Windows · TikTok</div>
   <h1>Từ video gốc<br>đến bản dựng của bạn.</h1>
   <p class="intro">AI chuẩn bị draft theo phương án bạn chọn. Mở AI Editor Studio trên máy để xem trực tiếp, sửa timeline/chữ/hình và khóa các phần đã ưng. FFmpeg xuất MP4 khi bạn bấm xuất.</p>
+  <p><strong>Không cần nhắc lại cấu hình mỗi lần:</strong> chỉ định video rồi nói “edit giúp tôi”. Agent dùng <strong>large-v3 local</strong> và bộ công cụ đã chốt, đọc nội dung rồi đề xuất <strong>một phương án để bạn duyệt trước khi dựng</strong>. <a href="core/editing-workflow.md">Flow mặc định</a> và <a href="preferences/workflow.json">cấu hình thường trực</a> được đọc cho mọi nhóm skill.</p>
   <ol>
     <li>
       <h2>Giải nén &amp; chuẩn bị</h2>
@@ -35,7 +36,7 @@
       <p>Để có editor trực quan, chạy thêm:</p><pre><code>powershell -ExecutionPolicy Bypass -File .\scripts\setup.ps1 -WithEditor -WithSkills
 .\.venv\Scripts\python.exe ai_editor.py editor</code></pre>
       <p class="note">Sau setup, nhấp shortcut <strong>AI Editor Studio</strong> trên desktop hoặc <code>Open AI Editor.cmd</code> trong thư mục dự án. App tự bật server ẩn, mở browser và khôi phục project/vị trí xem gần nhất. Mở nhiều lần dùng lại server. Editor có autosave, undo/redo và khóa vùng. Nếu mở bằng CLI thì giữ terminal chạy. Xem <a href="core/visual-editor.md">hướng dẫn sửa trực quan</a>. Setup editor không tải model Whisper.</p>
-      <aside class="whisper"><strong>Whisper cần tải model riêng — không có sẵn trong ZIP.</strong><p>Lệnh setup chỉ cài thư viện STT. Khi bạn chọn phiên âm lần đầu, AI hỏi model rồi mới chạy: <code>large-v3</code> khoảng <strong>3 GB</strong>, hoặc <code>small</code> nhẹ hơn. Cần mạng, dung lượng đĩa và thời gian chờ tải; chạy large-v3 trên CPU cũng có thể chậm. Các video sau tái sử dụng model đã cache nếu còn đầy đủ. <code>doctor</code> báo STT đã cài không có nghĩa model đã tải. <a href="README.md#whisper">Chi tiết và lệnh dùng model</a>.</p></aside>
+      <aside class="whisper"><strong>Whisper cần model riêng — không có sẵn trong ZIP.</strong><p>Lệnh setup chỉ cài thư viện STT. Workspace đã chọn thường trực <code>large-v3 local</code> khoảng <strong>3 GB</strong>, CPU/int8; agent không hỏi chọn model lại cho mỗi clip. Dùng lại transcript có sẵn hoặc thư mục model đã chuẩn bị; thiếu file thì báo để phục hồi đúng model, không tự đổi bản nhẹ hơn hay tải âm thầm. Máy mới cần chuẩn bị weights riêng. <code>doctor</code> báo STT đã cài không có nghĩa model đã tải. <a href="README.md#whisper">Chi tiết</a>.</p></aside>
       <p class="note">Chỉ khi cần motion Remotion: cài <a href="https://nodejs.org/en/download">Node.js</a>, có Chrome/Edge, rồi chạy lại lệnh setup thêm <code>-WithMotion</code>.</p>
     </li>
     <li>

@@ -1,0 +1,29 @@
+{
+  "schema_version": "1.0",
+  "version": "1.0.0",
+  "scope": "project-standing-instructions",
+  "execution": {
+    "editor": "local-studio",
+    "media_engine": "ffmpeg",
+    "motion_engine": "remotion",
+    "preserve_source": true,
+    "preserve_approved_ranges": true
+  },
+  "transcription": {
+    "engine": "faster-whisper",
+    "model": "large-v3",
+    "local_model_dir": ".tools/models/faster-whisper-large-v3",
+    "device": "cpu",
+    "compute_type": "int8",
+    "word_timestamps": true,
+    "reuse_existing_transcript": true,
+    "allow_before_creative_setup": true,
+    "missing_model": "report-and-restore-same-model"
+  },
+  "creative": {
+    "mode": "analyze-then-propose-one-for-user-approval",
+    "default_skill_group": null,
+    "automatic_render_review_loop": false
+  },
+  "guide_ref": "core/editing-workflow.md"
+}

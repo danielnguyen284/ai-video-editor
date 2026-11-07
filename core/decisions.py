@@ -23,21 +23,22 @@ def initial_decisions(job_id, revision, inherited=None):
 def questions(revision):
     """Suggestions are not answers; the agent presents these in small chat batches."""
     config = read_json(revision / "resolved-config.json")
+    from core.workflow_defaults import workflow_defaults
     return {
+        "standing_workflow": workflow_defaults(config),
         "decisions": read_json(revision / "decisions.json") if (revision / "decisions.json").is_file() else initial_decisions(config["job_id"], config["revision"]),
         "suggested_choices": {
             "style": [config["profile"]["skills"]["style"]["id"], "Another installed style or create one from your reference"],
             "domain": [config["profile"]["skills"]["domain"]["id"], "Another installed domain or create a new domain skill"],
             "output": ["Vertical 9:16", "Horizontal 16:9", "Keep source aspect; specify dimensions"],
             "footage_analysis": ["Skip image analysis", "Local scene/face/crop analysis", "Local analysis plus semantic vision through Ollama or the IDE agent"],
-            "transcription": ["Local STT (first use downloads model)", "Use supplied timed transcript", "No speech processing"],
             "editing": ["Keep original order, remove stumbles/repetition", "Reorder around a stronger hook", "Only make cuts I specify"],
             "captions": ["Styled captions", "Simple captions", "No captions"],
             "research": ["Use supplied materials only", "Research specified claims/assets", "No added research"],
             "visuals": ["Framing and captions only", "Image/logo/B-roll overlays", "Remotion metric card, bar chart, lower third or KineticScene text/cards/progress"],
             "audio": ["Voice only", "Supplied background music with ducking", "Propose audio treatment before applying it"],
         },
-        "note": "Profiles select separate upstream skill groups. Check ai_editor.py skills and core/skill-library.md for installed files versus native runtime availability. Existing jobs use frozen snapshots.",
+        "note": "Apply standing large-v3 local settings without re-asking. Reuse existing/supplied transcripts; skip STT for no-speech work. Only unresolved creative choices need the user's selection. See core/editing-workflow.md and core/skill-library.md.",
     }
 
 

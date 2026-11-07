@@ -14,6 +14,7 @@ ROOT = Path(__file__).resolve().parents[1]
 ROOT_FILES = (
     "ai_editor.py", "launch_editor.pyw", "Open AI Editor.cmd", "AGENTS.md", "README.md", "HUONG-DAN.html",
     "ai-video-editor-project.md", "requirements-stt.txt", "requirements-vision.txt", ".gitignore",
+    "preferences/workflow.json",
 )
 SOURCE_DIRS = ("core", "skills", "profiles", "scripts", "tests", "editor", ".agents/skills")
 MOTION_FILES = ("package.json", "package-lock.json", "tsconfig.json", "render.mjs")
@@ -56,7 +57,7 @@ def package(output):
         for name in ("inbox", "jobs", "comparisons"):
             (stage/name).mkdir()
             (stage/name/".gitkeep").touch()
-        (stage/"preferences").mkdir()
+        (stage/"preferences").mkdir(exist_ok=True)
         preference = {"scope":"user", "editorial_preferences":{"primary_platform":"tiktok"}, "overrides":{}, "feedback_sources":[]}
         (stage/"preferences/default.json").write_text(json.dumps(preference,ensure_ascii=False,indent=2)+"\n",encoding="utf-8")
         entries = {path.relative_to(stage).as_posix(): hashlib.sha256(path.read_bytes()).hexdigest() for path in sorted(stage.rglob("*")) if path.is_file()}

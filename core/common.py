@@ -104,8 +104,10 @@ def resolve_profile(profile_id):
     preference = read_json(within(ROOT, profile["preferences_ref"]))
     settings = merge(settings, preference.get("overrides", {}))
     settings = merge(settings, profile.get("overrides", {}))
+    from core.workflow_defaults import workflow_defaults
     return {
         "schema_version": "1.0", "profile": profile, "skills": snapshots,
+        "workflow_defaults": workflow_defaults(root=ROOT),
         "settings": settings, "resolved_at": timestamp(),
         "precedence": ["skill defaults", "user preferences", "profile overrides", "edit plan"],
     }

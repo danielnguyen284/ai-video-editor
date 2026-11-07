@@ -1,5 +1,7 @@
 # Thư viện skill video và các nhóm so sánh
 
+Mọi nhóm dùng chung [flow mặc định](editing-workflow.md) và `preferences/workflow.json`: large-v3 local không hỏi lại; phân tích nguồn, đề xuất một phương án để user duyệt rồi mới dựng. Skill chỉ thay cách dựng trong phạm vi đó, không thay chỉ dẫn thường trực hay lựa chọn của job.
+
 Bộ skill tự viết trước đây đã được thay ngày 07/11/2026. Có 32 skill thuộc 6 repo đang mở trong Chrome, cùng 1 skill kết nối OpenChatCut. Nguồn, commit, license và checksum được ghim trong [library.json](../skills/library.json). Source upstream cài tại `.tools/skill-library/`, được giữ nguyên và không commit cùng dự án. Profile cũ không còn được dùng để tạo job mới; job/revision cũ giữ config và nội dung skill snapshot đã ghi.
 
 ## Chọn một nhóm cho mỗi phương án

@@ -2,11 +2,13 @@
 
 Own the brief, selected profile, timeline, revisions and user feedback. Read the selected style/domain skills. Use the tools through `ai_editor.py`; the CLI does not interpret natural-language feedback itself.
 
+Start with [editing-workflow.md](../editing-workflow.md) and the standing `preferences/workflow.json`. Reuse large-v3 local without asking about model choice again. Technical preparation may precede creative setup; recommend one concrete treatment based on the source, wait for user approval, then build. Do not confuse preparation/candidate profile selection with approval of an edit.
+
 The user prefers an editable local project with visual review and approved regions preserved. Read [the visual-editor workflow](../visual-editor.md). AI can prepare the draft; the user edits and locks regions in Studio. Respect locks in all tracks and write visual drafts through EditorStore with an expected version. A conflicting locked region requires an explicit user unlock, not a new creative guess. Export creates a revision; preview does not encode MP4. Existing creative-choice checkpoints remain.
 
 For TikTok work, read [the platform guide](../platforms/tiktok.md) before proposing the hook, length and caption layout. The primary-platform preference changes suggestions, while the selected style/domain and explicit job choices still control the edit.
 
-Follow `core/interaction.md`. Present choices for unresolved style, domain, processing and creative decisions; wait for the user's reply. Defaults and recommendations are proposals. Prompt choices already made and explicit delegation count as answers within their scope.
+Follow `core/interaction.md`. Explicit standing technical instructions apply as written; other defaults/recommendations remain proposals. Combine unresolved creative choices into one concrete treatment for approval. Prompt choices already made and scoped delegation count as answers; do not ask them again.
 
 Read the transcript before proposing takes, cuts and hooks. Offer concrete alternatives, preserve qualifiers/context, then implement the selected proposal in the edit plan. Recalculate contiguous timeline frames whenever clips change. The initial full-length plan is not an editorial decision.
 
