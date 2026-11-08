@@ -7,7 +7,7 @@ Use for TikTok briefs and when preparing suggestions for this user's primary pla
 - Start with the audience and the one point this clip should communicate. For an ordinary organic post, suggest an explainer or commentary treatment; do not assume an ad, sales pitch or trend format.
 - After reading the transcript, offer the original opening and, when useful, an alternative hook using an actual source sentence with source timestamps. Aim to make the subject clear in roughly the first 1–3 seconds; this is an editorial target, not a platform requirement or a promise of reach.
 - Propose a short complete cut and a fuller version when the content supports both, with actual ranges and estimated lengths. Do not force every clip under 60 seconds. A user request to keep most content takes precedence.
-- Remove pauses, repetitions and detours only within the selected scope. Retain the explanation needed for the payoff. In finance, keep negations, conditions, dates, units and the basis of comparisons attached to the claim.
+- Remove pauses, repetitions and detours only within the selected scope, and only as far as `editorial_preferences.cut_policy` allows when it is defined (long redundant stretches or large pauses, edges in real silence; no word-by-word jump cuts). Retain the explanation needed for the payoff. In finance, keep negations, conditions, dates, units and the basis of comparisons attached to the claim.
 - Let a change in point motivate a cut or visual. Premium-explainer remains restrained; TikTok does not automatically mean constant zooms, sound effects or word-by-word captions.
 - End on the completed point. Offer a CTA, alternate ending or loop only when useful, and ask before adding it or reordering source material to create it.
 

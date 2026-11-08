@@ -66,12 +66,21 @@ def main():
     decide.add_argument("--user-message", required=True)
     decide.add_argument("--answers", help="JSON file of setup choices collected from the user")
     decide.add_argument("--summary", help="Concrete edit option selected by the user")
-    cut = commands.add_parser("cut", help="Rebuild a pending revision's clips from approved source ranges to remove; snaps cuts to quiet audio")
+    cut = commands.add_parser("cut", help="Rebuild clips from approved source ranges to remove; cuts land only in real pauses")
     cut.add_argument("job_id")
     cut.add_argument("--revision")
-    cut.add_argument("--remove", nargs="+", required=True, metavar="START-END", help="Source seconds to remove, e.g. 0-0.8 12.75-14.13")
-    cut.add_argument("--no-refine", action="store_true", help="Keep the given times instead of the quietest point nearby")
-    cut.add_argument("--search", type=float, default=0.15, help="Seconds around each boundary to search for the quietest point")
+    cut.add_argument("--studio", action="store_true", help="Re-cut the Studio draft and send it as a proposal (captions rebuilt, layers retimed)")
+    cut.add_argument("--summary", help="With --studio: the sentence the user reads before approving")
+    cut.add_argument("--remove", nargs="*", default=[], metavar="START-END", help="Source seconds to remove, e.g. 0-0.8 12.75-14.13")
+    cut.add_argument("--split", nargs="*", type=float, default=[], metavar="SECONDS",
+                     help="Cut points that remove nothing (e.g. to keep a transition), centred in the nearest pause")
+    cut.add_argument("--no-refine", action="store_true", help="Keep the given times exactly (no pause search or padding)")
+    cut.add_argument("--pad", type=float, default=0.15, help="Seconds of pause kept beside the words at each cut")
+    cut.add_argument("--min-remove", type=float, default=0.5, help="Skip a range when less than this would be removed")
+    cut.add_argument("--min-pause", type=float, default=0.06, help="Shortest quiet stretch that counts as a pause for an edge")
+    cut.add_argument("--search", type=float, default=0.3, help="Seconds around each requested edge to look for a pause")
+    cut.add_argument("--allow-tight", action="store_true",
+                     help="Place an edge with no pause between syllables instead of skipping it (only when the user asked for that cut)")
     captions = commands.add_parser("captions", help="Write balanced two-line caption items from the corrected transcript")
     captions.add_argument("job_id")
     captions.add_argument("--revision")
@@ -191,7 +200,16 @@ def main():
                     if not separator:
                         raise ValueError(f"Use START-END seconds, got {item}")
                     ranges.append((float(start), float(end)))
-                print(json.dumps(edit_tools.cut_plan(folder, revision, ranges, refine=not args.no_refine, search=args.search), ensure_ascii=False, indent=2))
+                settings = dict(pad=args.pad, min_pause=args.min_pause, min_remove=args.min_remove, search=args.search,
+                                allow_tight=args.allow_tight)
+                if args.studio:
+                    from core.common import ROOT
+                    from core.editor_service import EditorStore
+                    result = edit_tools.cut_draft(folder, EditorStore(ROOT), args.job_id, ranges, splits=args.split,
+                                                  summary=args.summary, **settings)
+                else:
+                    result = edit_tools.cut_plan(folder, revision, ranges, refine=not args.no_refine, splits=args.split, **settings)
+                print(json.dumps(result, ensure_ascii=False, indent=2))
             elif args.command == "captions":
                 print(json.dumps(edit_tools.build_captions(folder, revision, max_seconds=args.max_seconds, extra_compounds=args.keep_together), ensure_ascii=False, indent=2))
             else:

@@ -10,6 +10,7 @@ import math
 import subprocess
 import tempfile
 import wave
+from copy import deepcopy
 from pathlib import Path
 
 from core.common import EditorError, executable, read_json, timestamp, within, write_json
@@ -68,86 +69,376 @@ def energy(folder, source):
     return levels
 
 
-def quietest(levels, seconds, search):
-    """The gap between syllables nearest to `seconds`, else the quietest point nearby.
+def silence_threshold(levels, above_floor=12.0):
+    """Quiet means less than `above_floor` dB over the recording's noise floor (5th percentile)."""
+    if not levels:
+        return -40.0
+    ordered = sorted(levels)
+    return ordered[int(len(ordered) * 0.05)] + above_floor
 
-    A gap is a local minimum at least 10 dB below the loudest level within 80 ms. The
-    absolute minimum alone can jump past a short syllable that should be cut ("Đúng").
+
+def quiet_runs(levels, threshold, shortest):
+    """(start, end) seconds of stretches below `threshold` lasting at least `shortest` seconds."""
+    runs, start = [], None
+    for index, value in enumerate([*levels, math.inf]):
+        if value < threshold:
+            start = index if start is None else start
+        elif start is not None:
+            if (index - start) / 100 >= shortest - 1e-9:
+                runs.append((start / 100, index / 100))
+            start = None
+    return runs
+
+
+def frames_inside(run, fps):
+    """First and last frame boundary inside a quiet run, or None when no boundary fits."""
+    first, last = math.ceil(run[0] * fps - 1e-6), math.floor(run[1] * fps + 1e-6)
+    return (first, last) if first <= last else None
+
+
+def pause_near(levels, runs, seconds, search, fps, threshold, slack):
+    """The quiet run nearest to `seconds` (within `search`) that a frame boundary fits in.
+
+    Reaching it may cross at most `slack` seconds of sound: Whisper word edges are often a
+    little early or late, but a longer stretch is a word that would change sides of the cut.
     """
-    lo, hi = max(0, int((seconds - search) * 100)), min(len(levels), int((seconds + search) * 100) + 1)
-    if lo >= hi:
-        return seconds
-    gaps = [i for i in range(lo, hi)
-            if levels[i] <= levels[max(0, i - 1)] and levels[i] <= levels[min(len(levels) - 1, i + 1)]
-            and max(levels[max(0, i - 8):i + 9]) - levels[i] >= 10]
-    index = min(gaps, key=lambda i: abs(i / 100 + 0.005 - seconds)) if gaps else min(range(lo, hi), key=lambda i: levels[i])
-    return index / 100 + 0.005
+    def sound(lo, hi):
+        return sum(1 for i in range(max(0, int(lo * 100)), min(len(levels), int(hi * 100))) if levels[i] >= threshold) / 100
+    near = []
+    for run in runs:
+        if run[0] - search <= seconds <= run[1] + search and frames_inside(run, fps):
+            crossed = sound(seconds, run[0]) if seconds < run[0] else sound(run[1], seconds)
+            if crossed <= slack + 1e-9:
+                near.append(run)
+    return min(near, key=lambda r: max(r[0] - seconds, seconds - r[1], 0), default=None)
 
 
-def cut_plan(folder, revision, remove, *, refine=True, search=0.15):
-    """Replace the plan's clips by the source with `remove` ranges taken out; returns a report.
+def quietest_frame(levels, seconds, search, fps):
+    """Frame boundary within ±search whose surrounding 20 ms is quietest (nearest among near-ties).
 
-    Boundaries move to the quietest 10 ms within ±search seconds (refine) and snap to
-    frames. The report lists the words at each cut and Whisper words that cross it.
+    Only for an edge the user explicitly allows to fall between syllables of continuous speech.
     """
-    plan = revision_plan(revision)
-    job = read_json(folder / "job.json")
-    from core.adapters.ffmpeg import probe
-    source = within(folder, job["assets"][0]["path"])
-    duration = probe(source)["duration_seconds"]
-    fps = plan["fps"]
-    ranges = sorted((float(a), float(b)) for a, b in remove)
-    for (a, b), following in zip(ranges, ranges[1:] + [(math.inf, math.inf)]):
-        if not 0 <= a < b <= duration + 0.001 or b > following[0]:
-            raise EditorError(f"Remove ranges must be ordered, inside 0-{duration:.2f} s and not overlap: {a}-{b}")
-    levels = energy(folder, source) if refine else []
-    snap = lambda t: round(t * fps) / fps
-    edges = []
+    first, last = math.ceil((seconds - search) * fps), math.floor((seconds + search) * fps)
+    score = lambda f: max(levels[max(0, round(f / fps * 100) - 2):round(f / fps * 100) + 2] or [0.0])
+    frames = list(range(max(0, first), last + 1))
+    if not frames or not levels:
+        return round(seconds * fps) / fps
+    best = min(score(f) for f in frames)
+    return min((f for f in frames if score(f) <= best + 3), key=lambda f: abs(f / fps - seconds)) / fps
+
+
+def place_cuts(levels, ranges, duration, fps, *, pad=0.15, min_pause=0.06, min_remove=0.5, search=0.3, slack=0.1,
+               allow_tight=False, threshold=None):
+    """Turn approved remove ranges into frame-exact cuts that land only in real pauses.
+
+    Each edge moves to the quiet stretch (at least `min_pause` seconds) nearest to the
+    requested time, crossing at most `slack` seconds of sound on the way, and keeps up to
+    `pad` seconds of it beside the kept speech, so joined words keep a natural breath and
+    no syllable is clipped. A range is skipped (and reported) when an edge has no such
+    pause, i.e. continuous speech, or when less than `min_remove` seconds would go.
+    `allow_tight` instead puts such an edge on the quietest frame boundary between
+    syllables, only when the user asked for that cut.
+    """
+    threshold = silence_threshold(levels) if threshold is None else threshold
+    runs = quiet_runs(levels, threshold, min_pause)
+    placed, skipped = [], []
     for a, b in ranges:
-        a = 0.0 if a <= 0.001 else snap(quietest(levels, a, search) if refine else a)
-        b = duration if b >= duration - 0.001 else snap(quietest(levels, b, search) if refine else b)
-        edges.append((a, min(b, duration)))
+        notes, edges = [], []
+        for side, seconds in (("start", a), ("end", b)):
+            if side == "start" and seconds <= 0.001:
+                edges.append(0.0)
+                continue
+            if side == "end" and seconds >= duration - 0.001:
+                edges.append(duration)
+                continue
+            run = pause_near(levels, runs, seconds, search, fps, threshold, slack)
+            if run:
+                first, last = frames_inside(run, fps)
+                target = run[0] + pad if side == "start" else run[1] - pad
+                edges.append(min(max(round(target * fps), first), last) / fps)
+            elif allow_tight:
+                edges.append(quietest_frame(levels, seconds, search, fps))
+                notes.append(f"{side} {seconds:.2f} s sits between syllables of continuous speech (allowed)")
+            else:
+                edges = None
+                skipped.append({"requested": [a, b], "reason": f"no pause near the {side} ({seconds:.2f} s): continuous speech, "
+                                "a cut there would clip a word"})
+                break
+        if edges is None:
+            continue
+        start, end = edges
+        # Trimming the head or tail joins nothing, so any length may go there.
+        if 0 < start and end < duration and end - start < min_remove - 1e-6:
+            skipped.append({"requested": [a, b], "reason": f"only {max(0, end - start):.2f} s would go after keeping "
+                            f"{pad:g} s of pause beside the words (minimum {min_remove:g} s)"})
+            continue
+        placed.append({"requested": [a, b], "remove": [round(start, 4), round(min(end, duration), 4)], "notes": notes})
+    return placed, skipped
+
+
+def place_splits(levels, splits, fps, *, search=0.3, min_pause=0.06, threshold=None):
+    """Cut points that remove nothing (e.g. for a transition), centred in the nearest pause."""
+    threshold = silence_threshold(levels) if threshold is None else threshold
+    runs, result = quiet_runs(levels, threshold, min_pause), []
+    for seconds in splits:
+        run = pause_near(levels, runs, seconds, search, fps, threshold, search)
+        if not run:
+            raise EditorError(f"No pause near {seconds:.2f} s for a split; pick a moment between sentences.")
+        first, last = frames_inside(run, fps)
+        result.append(min(max(round((run[0] + run[1]) / 2 * fps), first), last) / fps)
+    return result
+
+
+def keep_ranges(cuts, splits, duration, fps):
+    snap = lambda t: round(t * fps) / fps
     keeps, cursor = [], 0.0
-    for a, b in edges:
+    for a, b in sorted(cuts):
         if a > cursor:
-            keeps.append((cursor, a))
+            keeps.append([cursor, a])
         cursor = max(cursor, b)
     if cursor < duration:
-        keeps.append((cursor, snap(duration) if snap(duration) <= duration else duration))
+        keeps.append([cursor, snap(duration) if snap(duration) <= duration else duration])
+    for point in sorted(splits):
+        for index, (a, b) in enumerate(keeps):
+            if a < point < b:
+                keeps[index:index + 1] = [[a, point], [point, b]]
+                break
+    return [(a, b) for a, b in keeps if round((b - a) * fps) >= 1]
+
+
+def source_at(clips, frame, fps):
+    """Source second shown at an output frame of rate-1 clips (clamped to the timeline)."""
+    clip = next((c for c in clips if c["timeline_in_frame"] <= frame < c["timeline_out_frame"]),
+                clips[-1] if frame >= clips[-1]["timeline_out_frame"] else clips[0])
+    return clip["source_in_seconds"] + (frame - clip["timeline_in_frame"]) / fps
+
+
+def frame_at(clips, seconds, fps, *, forward=True):
+    """Output frame of a source second; a cut-away second moves to the next (or previous) kept frame."""
+    previous = None
+    for clip in clips:
+        if seconds < clip["source_in_seconds"] - 1e-6:
+            return clip["timeline_in_frame"] if forward or previous is None else previous["timeline_out_frame"] - 1
+        if seconds < clip["source_out_seconds"] - 1e-6:
+            return clip["timeline_in_frame"] + round((seconds - clip["source_in_seconds"]) * fps)
+        previous = clip
+    return clips[-1]["timeline_out_frame"] - 1
+
+
+def remap_span(old, new, start, end, fps, old_total, new_total):
+    """Old output frames [start, end) to the new timeline by source time; None when cut away."""
+    a = 0 if start <= 0 else frame_at(new, source_at(old, start, fps), fps)
+    b = new_total if end >= old_total else frame_at(new, source_at(old, end - 1, fps), fps, forward=False) + 1
+    return (a, b) if b > a else None
+
+
+def recut(plan, cuts, splits, fps, duration, asset_id):
+    """New clips for the kept source, carrying zoom/crop/transitions and retiming layers and SFX.
+
+    Works when the current clips are rate-1 source-ordered pieces (what `cut` writes);
+    otherwise layers and SFX are left for the agent to place again. Returns (plan, notes).
+    """
+    old = plan["clips"]
+    ordered = all(c.get("playback_rate", 1) == 1 for c in old) and all(
+        a["source_out_seconds"] <= b["source_in_seconds"] + 1e-6 for a, b in zip(old, old[1:]))
+    old_cuts = [(a["source_out_seconds"], b["source_in_seconds"], b) for a, b in zip(old, old[1:])]
     clips, frame = [], 0
-    for index, (a, b) in enumerate(keeps, 1):
+    for index, (a, b) in enumerate(keep_ranges(cuts, splits, duration, fps), 1):
         frames = round((b - a) * fps)
-        if frames < 1:
-            continue
-        clips.append({"clip_id": f"clip-{index:03d}", "asset_id": job["assets"][0]["asset_id"], "source_in_seconds": round(a, 4),
-                      "source_out_seconds": round(b, 4), "timeline_in_frame": frame, "timeline_out_frame": frame + frames,
-                      "playback_rate": 1.0})
+        clip = {"clip_id": f"clip-{index:03d}", "asset_id": asset_id, "source_in_seconds": round(a, 4),
+                "source_out_seconds": round(b, 4), "timeline_in_frame": frame, "timeline_out_frame": frame + frames,
+                "playback_rate": 1.0}
+        if ordered:
+            parent = next((c for c in old if c["source_in_seconds"] - 1e-6 <= a < c["source_out_seconds"] - 1e-6), None) \
+                or next((c for c in old if c["source_in_seconds"] >= a - 1e-6), None)
+            if parent and parent.get("crop"):
+                clip["crop"] = parent["crop"]
+            if parent and parent.get("zoom"):
+                keys = [dict(k) for k in parent["zoom"] if a - 1e-6 <= k["source_seconds"] < b]
+                if not keys or keys[0]["source_seconds"] > a + 1e-6:
+                    keys.insert(0, {**parent["zoom"][0], "source_seconds": round(a, 4)})
+                clip["zoom"] = keys
+            if clips:
+                # The transition of the old cut this new cut replaces (a split counts as a cut).
+                before = clips[-1]["source_out_seconds"]
+                match = next((c for o_out, o_in, c in old_cuts if c.get("transition")
+                              and o_out - 0.35 <= a and before <= o_in + 0.35), None)
+                if match:
+                    clip["transition"] = dict(match["transition"])
+        clips.append(clip)
         frame += frames
     if not clips:
         raise EditorError("Nothing would remain after these cuts.")
-    stale = [name for name, present in (("overlays", plan.get("overlays")), ("audio.sfx", plan["audio"].get("sfx")),
-                                        ("captions.items", plan["captions"].get("items"))) if present]
-    plan.update(clips=clips, duration_frames=frame)
-    plan["captions"].pop("items", None)
-    write_json(revision / "edit-plan.json", plan, replace=True)
-    try:
-        transcript = transcript_of(folder, plan)
-    except EditorError:
-        transcript = {}
+    result = deepcopy(plan)
+    result.update(clips=clips, duration_frames=frame)
+    notes = {"retimed": ordered, "dropped_layers": [], "resized_layers": []}
+    if not ordered:
+        return result, notes
+    old_total = plan["duration_frames"]
+    layers = []
+    for layer in plan.get("overlays", []):
+        span = remap_span(old, clips, layer["timeline_in_frame"], layer["timeline_out_frame"], fps, old_total, frame)
+        if not span:
+            notes["dropped_layers"].append(layer["id"])
+            continue
+        if span[1] - span[0] != layer["timeline_out_frame"] - layer["timeline_in_frame"]:
+            notes["resized_layers"].append(layer["id"])
+        layers.append({**layer, "timeline_in_frame": span[0], "timeline_out_frame": span[1]})
+    result["overlays"] = layers
+    # A one-shot sound near a cut that still exists keeps its offset to that cut (a whoosh
+    # on a transition); any other sound stays on its source moment.
+    new_cuts = [(a["source_out_seconds"], b["source_in_seconds"], b["timeline_in_frame"]) for a, b in zip(clips, clips[1:])]
+    sounds = []
+    for item in plan["audio"].get("sfx", []):
+        length = item["timeline_out_frame"] - item["timeline_in_frame"]
+        near = min(((abs(c["timeline_in_frame"] - item["timeline_in_frame"]), c) for c in old[1:]), default=(None, None), key=lambda x: x[0])
+        start = None
+        if near[1] is not None and near[0] <= fps:
+            o_out = old[old.index(near[1]) - 1]["source_out_seconds"]
+            match = next((f for n_out, n_in, f in new_cuts if o_out - 0.35 <= n_in and n_out <= near[1]["source_in_seconds"] + 0.35), None)
+            if match is not None:
+                start = match + item["timeline_in_frame"] - near[1]["timeline_in_frame"]
+        if start is None:
+            start = frame_at(clips, source_at(old, item["timeline_in_frame"], fps), fps)
+        start = max(0, min(start, frame - 1))
+        sounds.append({**item, "timeline_in_frame": start, "timeline_out_frame": min(frame, start + length)})
+    if "sfx" in plan["audio"]:
+        result["audio"]["sfx"] = sounds
+    return result, notes
+
+
+def retime_motions(motions, old_plan, new_plan):
+    """Fit Remotion specs to their resized layers: duration and spoken-moment frames follow source time."""
+    fps, result = new_plan["fps"], deepcopy(motions)
+    old_layers = {layer["id"]: layer for layer in old_plan["overlays"]}
+    for layer in new_plan["overlays"]:
+        spec, before = result.get(layer["id"]), old_layers.get(layer["id"])
+        if not spec or not before:
+            continue
+        scale = spec["fps"] / fps
+
+        def moved(at):
+            old_frame = before["timeline_in_frame"] + round(at / scale)
+            new_frame = frame_at(new_plan["clips"], source_at(old_plan["clips"], old_frame, fps), fps)
+            return max(0, round((new_frame - layer["timeline_in_frame"]) * scale))
+        props = spec["props"]
+        for item in props.get("items", []) if spec["template"] == "Points" else []:
+            if "at" in item:
+                item["at"] = moved(item["at"])
+        if spec["template"] == "Keyword" and props.get("emphasis_frame"):
+            props["emphasis_frame"] = moved(props["emphasis_frame"])
+        grown = (layer["timeline_out_frame"] - layer["timeline_in_frame"]) - (before["timeline_out_frame"] - before["timeline_in_frame"])
+        if grown:
+            needed = math.ceil((layer["timeline_out_frame"] - layer["timeline_in_frame"]) * scale + layer.get("source_in_seconds", 0) * spec["fps"])
+            spec["duration_frames"] = max(needed, spec["duration_frames"] + round(grown * scale))
+    return result
+
+
+def cut_report(clips, placed, skipped, transcript, fps, splits=()):
     words = [(w["start"], w["end"], w["text"].strip()) for s in transcript.get("segments", [])
              for w in s.get("words", []) if w["end"] > w["start"]]
     kept = lambda t: any(c["source_in_seconds"] <= t < c["source_out_seconds"] for c in clips)
     cuts = []
-    for a, b in edges:
+    for item in placed:
+        a, b = item["remove"]
+        ra, rb = item["requested"]
         dropped = [w[2] for w in words if a <= (w[0] + w[1]) / 2 < b]
-        crossing = [f"{w[2]} {w[0]:.2f}-{w[1]:.2f}" for w in words if (w[0] < a < w[1] or w[0] < b < w[1])]
-        stretched = [f"{w[2]} {w[0]:.2f}-{w[1]:.2f}" for w in words if kept((w[0] + w[1]) / 2) and (w[0] < a - 0.15 < a < w[1] or w[0] < b < b + 0.15 < w[1])]
-        cuts.append({"remove": [a, b], "dropped_words": " ".join(dropped), "words_crossing_cut": crossing, "check_word_timing": stretched})
-    report = {"created_at": timestamp(), "duration_seconds": round(frame / fps, 3), "clips": len(clips), "cuts": cuts,
-              "refined": refine, "stale_after_cut": stale,
-              "next": "Captions mapped from words whose midpoint is kept; fix stretched word times in cleaned.json, then run captions."}
+        asked = [w[2] for w in words if ra <= (w[0] + w[1]) / 2 < rb]
+        stretched = [f"{w[2]} {w[0]:.2f}-{w[1]:.2f}" for w in words if kept((w[0] + w[1]) / 2)
+                     and (w[0] < a - 0.15 < a < w[1] or w[0] < b < b + 0.15 < w[1])]
+        cut = {**item, "dropped_words": " ".join(dropped), "check_word_timing": stretched}
+        if dropped != asked:
+            cut["requested_words"] = " ".join(asked)
+        cuts.append(cut)
+    for item in skipped:
+        ra, rb = item["requested"]
+        item["kept_words"] = " ".join(w[2] for w in words if ra <= (w[0] + w[1]) / 2 < rb)
+    return {"created_at": timestamp(), "duration_seconds": round(clips[-1]["timeline_out_frame"] / fps, 3), "clips": len(clips),
+            "cuts": cuts, "skipped": skipped, "splits": list(splits)}
+
+
+def cut_settings(pad=0.15, min_pause=0.06, min_remove=0.5, search=0.3, slack=0.1, allow_tight=False):
+    return {"pad": pad, "min_pause": min_pause, "min_remove": min_remove, "search": search, "slack": slack, "allow_tight": allow_tight}
+
+
+def _source(folder):
+    job = read_json(folder / "job.json")
+    from core.adapters.ffmpeg import probe
+    source = within(folder, job["assets"][0]["path"])
+    return job, source, probe(source)["duration_seconds"]
+
+
+def _ranges(remove, duration):
+    ranges = sorted((float(a), float(b)) for a, b in remove)
+    for (a, b), following in zip(ranges, ranges[1:] + [(math.inf, math.inf)]):
+        if not 0 <= a < b <= duration + 0.001 or b > following[0]:
+            raise EditorError(f"Remove ranges must be ordered, inside 0-{duration:.2f} s and not overlap: {a}-{b}")
+    return ranges
+
+
+def cut_plan(folder, revision, remove, *, refine=True, splits=(), **settings):
+    """Rebuild a pending revision's clips from the source minus `remove`; returns a report.
+
+    Refined edges land only in real pauses (see place_cuts); ranges that cannot are kept
+    and listed under "skipped". Layers and SFX are retimed by source time (and resized
+    Remotion layers listed for a new render); caption items are dropped for `captions`.
+    """
+    plan = revision_plan(revision)
+    job, source, duration = _source(folder)
+    fps, settings = plan["fps"], cut_settings(**settings)
+    ranges = _ranges(remove, duration)
+    if refine:
+        levels = energy(folder, source)
+        placed, skipped = place_cuts(levels, ranges, duration, fps, **settings)
+        points = place_splits(levels, splits, fps, search=settings["search"], min_pause=settings["min_pause"])
+    else:
+        snap = lambda t: round(t * fps) / fps
+        placed = [{"requested": [a, b], "remove": [0.0 if a <= 0.001 else snap(a), duration if b >= duration - 0.001 else snap(b)],
+                   "notes": []} for a, b in ranges]
+        skipped, points = [], [snap(float(t)) for t in splits]
+    new, notes = recut(plan, [p["remove"] for p in placed], points, fps, duration, job["assets"][0]["asset_id"])
+    had_items = bool(plan["captions"].get("items"))
+    new["captions"].pop("items", None)
+    write_json(revision / "edit-plan.json", new, replace=True)
+    try:
+        transcript = transcript_of(folder, new)
+    except EditorError:
+        transcript = {}
+    report = {**cut_report(new["clips"], placed, skipped, transcript, fps, points), "refined": refine, "settings": settings,
+              **notes, "captions_dropped": had_items,
+              "next": "Read skipped and requested_words; fix stretched word times in cleaned.json, run captions, "
+                      "re-render Remotion layers listed in resized_layers."}
     write_json(revision / "cut-report.json", report, replace=True)
     return report
+
+
+def cut_draft(folder, store, job_id, remove, *, splits=(), summary=None, max_seconds=3.0, **settings):
+    """The same cut on the Studio draft, sent as a proposal the user approves in Studio.
+
+    Captions are rebuilt from the transcript for the new timeline and Remotion specs are
+    retimed to their layers. Locks are checked by the store; nothing changes until approval.
+    """
+    state = store.load(job_id)
+    plan = state["plan"]
+    job, source, duration = _source(folder)
+    fps, settings = plan["fps"], cut_settings(**settings)
+    levels = energy(folder, source)
+    placed, skipped = place_cuts(levels, _ranges(remove, duration), duration, fps, **settings)
+    points = place_splits(levels, splits, fps, search=settings["search"], min_pause=settings["min_pause"])
+    new, notes = recut(plan, [p["remove"] for p in placed], points, fps, duration, job["assets"][0]["asset_id"])
+    if not notes["retimed"]:
+        raise EditorError("The draft has reordered or speed-changed clips; edit it in Studio instead of re-cutting from source.")
+    transcript = transcript_of(folder, new)
+    items = caption_items(new, transcript, max_seconds=max_seconds)
+    new["captions"]["items"] = items
+    candidate = {**state, "plan": new, "motions": retime_motions(state["motions"], plan, new),
+                 "cues": [{"id": f"cue-{i:04d}", **item} for i, item in enumerate(items)]}
+    report = {**cut_report(new["clips"], placed, skipped, transcript, fps, points), "settings": settings, **notes}
+    text = summary or (f"Cắt lại: {len(placed)} chỗ cắt ở khoảng lặng thật, giữ {len(skipped)} chỗ không cắt được an toàn; "
+                       f"thời lượng {report['duration_seconds']:.1f} giây. Caption, minh họa và SFX đã dời theo.")
+    proposal = store.propose(job_id, candidate, state["version"], text)
+    write_json(folder / "editor/cut-report.json", {**report, "proposal": proposal["id"]}, replace=True)
+    return {**report, "proposal": proposal["id"], "summary": text}
 
 
 def caption_items(plan, transcript, *, max_seconds=3.0, compounds=COMPOUNDS):

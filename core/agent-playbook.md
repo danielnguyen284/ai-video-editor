@@ -15,6 +15,7 @@ Dùng cho mọi agent (Codex, Claude Code hay agent khác) khi người dùng nh
 - Xem 6 khung hình rải đều (ảnh ghép có lưới 10%) để biết: mặt nằm từ đâu tới đâu, có chữ in sẵn không, vùng trống ở đâu. Vị trí mặt quyết định chỗ đặt caption và chiều cao motion.
 - `new-job` với nhóm ứng viên (người nói trước camera: `melvynx-raw-vi`), rồi `transcribe` (cần khoảng 3 GB RAM trống; thiếu thì báo người dùng đóng bớt ứng dụng).
 - Đọc transcript theo từ có mốc giây; đo khoảng lặng thật (`silencedetect` hoặc năng lượng âm thanh). Tìm: câu nói lại, chỗ vấp, câu hỏi lặp, từ đệm, ngập ngừng dài. Lặp có chủ ý để nhấn mạnh thì giữ.
+- **Chỉ đề xuất cắt theo `cut_policy`** (`preferences/default.json`): đoạn thừa dài (nói lại, câu hỏi lặp, cụm đệm từ khoảng 1 giây) hoặc khoảng lặng lớn (từ khoảng 0,8 giây, rút bớt chứ không bỏ hết). Từ đệm ngắn, ngập ngừng ngắn và khoảng lặng dưới 0,8 giây giữ nguyên. Mỗi mép cắt phải nằm trong khoảng lặng thật: đoạn thừa nói liền vào lời giữ lại thì giữ nguyên, hoặc dời mép tới khoảng lặng gần nhất nếu câu vẫn đọc ổn (nói rõ trong phương án chữ nào bị bỏ thêm). Người dùng từng phản hồi cắt dày từng chữ là "gắt quá, cắt cả vào từ khác".
 - Liệt kê lỗi nhận dạng giọng nói: sửa chắc chắn (chính tả theo ngữ cảnh) và **chỗ cần người dùng xác nhận** (tên riêng, tên kênh, thuật ngữ, từ tiếng Anh). Từ Whisper lặp với độ dài 0 giây và độ tin cậy thấp là lỗi nhận dạng, không phải người nói lặp.
 
 ## 2. Gửi một phương án (rồi dừng chờ duyệt)
@@ -35,7 +36,7 @@ Câu trả lời ngắn như "ok", "2 / giữ / bạn tìm nhé" là duyệt; gh
 ## 3. Dựng sau khi duyệt
 
 1. **Sửa transcript**: chỉ sửa `transcript/cleaned.json` (giữ `raw.json`), mỗi sửa đổi có log (`corrections`: trước, sau, loại, lý do).
-2. **Cắt**: `ai_editor.py cut JOB --revision rNNN --remove 0-0.8 12.75-14.13 ...` (giây gốc cần bỏ). Lệnh dời mỗi điểm cắt về khe lặng gần nhất giữa hai âm tiết, khớp khung hình, viết lại clips và `cut-report.json`. Đọc báo cáo: `check_word_timing` là từ Whisper kéo dài qua khoảng lặng bị cắt; sửa `start`/`end` của từ đó trong `cleaned.json` theo âm thanh (có log) nếu không caption sẽ mất từ.
+2. **Cắt**: `ai_editor.py cut JOB --revision rNNN --remove 0-0.8 12.75-14.13 ...` (giây gốc cần bỏ). Mỗi mép được dời tới khoảng lặng thật gần nhất (đi qua tối đa 0,1 giây có tiếng), chừa 0,15 giây lặng cạnh lời giữ lại, khớp khung hình; khoảng nào mép rơi vào lời nói liền, hoặc bỏ được dưới 0,5 giây, thì **không cắt** và nằm trong `skipped` (kèm `kept_words`). Lớp hình, SFX gần chỗ cắt (giữ khoảng cách tới chỗ cắt), zoom, chuyển cảnh được dời theo; caption bị bỏ để chạy lại `captions`; motion Remotion trong `resized_layers` cần render lại. Đọc báo cáo: so `dropped_words` với ý định (có `requested_words` khi khác), `check_word_timing` là từ Whisper kéo dài qua khoảng lặng bị cắt; sửa `start`/`end` của từ đó trong `cleaned.json` theo âm thanh (có log) nếu không caption sẽ mất từ. Chuyển cảnh ở chỗ đổi phần mà không bỏ gì: `--split GIÂY` đặt điểm cắt giữa khoảng lặng. `--allow-tight` (cắt giữa hai âm tiết) chỉ dùng khi người dùng đòi đúng chỗ đó.
 3. **Zoom/chuyển cảnh**: zoom 108% xen kẽ ở các clip sau chỗ cắt nhỏ để giấu bước nhảy; `transition` chỉ ở chỗ đổi phần (trượt, lia nhanh 10 khung).
 4. **Caption**: `ai_editor.py captions JOB --revision rNNN` (cân đối 2 dòng, không tách từ ghép, chỉ viết hoa đầu câu thật hoặc sau chỗ cắt; thêm cụm không được tách bằng `--keep-together "lãi suất"`). Cỡ 80, viền 3; vị trí theo `tiktok_layout` (mép dưới khoảng y 1600, kiểm tra miệng/cằm).
 5. **Title**: `scripts/render_text.py --text-file title.txt --output assets/title/title.png --width 1000 --height 210 --font-size 76 --color #14344A --second-color #C02126 --outline-color #FFFFFF --outline-width 5`; lớp ảnh suốt video ở y khoảng 225, đứng **trước** các lớp motion trong danh sách overlay.
@@ -48,6 +49,7 @@ Câu trả lời ngắn như "ok", "2 / giữ / bạn tìm nhé" là duyệt; gh
 
 - Người dùng xem bản xuất rồi nhắn sửa: `revision --from-revision rNNN --feedback "<nguyên văn>"`, áp dụng, xem thử, xuất bản mới.
 - Người dùng đang chỉnh trong Studio: `EditorStore.load`, so với lịch sử `editor/history/` để biết họ đã đổi gì, rồi gửi **đề xuất** (`EditorStore.propose`, không `save` đè). Đề xuất mới thay đề xuất cũ; người dùng sửa thêm thì Duyệt bị từ chối, gửi lại trên version mới.
+- Cắt lại bản nháp Studio (cắt ít hơn, đổi chỗ cắt): `ai_editor.py cut JOB --studio --remove ... [--split ...] --summary "..."` gửi thẳng một đề xuất: cùng luật mép cắt như trên, caption dựng lại từ transcript (kiểm tra trước là caption hiện tại không bị sửa tay: so với `caption_items` của plan hiện tại), minh họa, SFX, zoom, chuyển cảnh và mốc `at` của thẻ Points dời theo giây nguồn. Báo cáo ở `editor/cut-report.json`.
 - Sửa code Python của dự án trong lúc Studio đang chạy: dừng tiến trình `ai_editor.py editor`, gọi `core.launcher.launch(open_browser=False)`, bảo người dùng tải lại trang. Thông báo "Unsupported ... props fields" với trường vừa thêm là dấu hiệu server cũ. Sửa `editor/src` thì `npm --prefix editor run build`.
 - Người dùng nói "từ giờ", "cho các video sau", "luôn": ghi vào `preferences/default.json` (preference chung) và trỏ từ tài liệu quy trình; nếu chưa rõ phạm vi thì ghi là ứng viên trong job và hỏi một câu.
 
@@ -58,6 +60,7 @@ Câu trả lời ngắn như "ok", "2 / giữ / bạn tìm nhé" là duyệt; gh
 - Heredoc và `sed` làm hỏng chuỗi có `\n` hay ` `; sửa file bằng công cụ chỉnh sửa hoặc dùng `chr(10)`.
 - Dựng có chuyển cảnh với một đầu đọc file chung từng hết RAM; renderer đã tách đầu đọc tiếng, đừng gộp lại.
 - Tua ở đầu ra (`-ss` sau `-i`) với bộ lọc của plan từng cho ảnh trống; dùng lệnh `preview`.
+- Xem trước trong Studio từng chớp đen ở mỗi chỗ cắt (mỗi clip mở một video riêng và phải tua tới đúng giây). `Preview.tsx` đã nạp sẵn clip kế tiếp 1 giây (`premountFor`); bản MP4 xuất ra không bị. Người dùng báo chớp đen thì kiểm tra MP4 bằng `blackdetect` trước khi sửa renderer.
 - Không chạy Remotion và build Studio song song khi máy ít RAM; không xóa dữ liệu người dùng khi chưa hỏi.
 
 ## 6. Cách trả lời người dùng

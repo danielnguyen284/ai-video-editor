@@ -280,8 +280,11 @@ Skill nằm trong dự án, được agent đọc qua `AGENTS.md`/profile. Chưa
 # AI đưa phương án dựng cụ thể; sau lựa chọn của người dùng, áp dụng vào plan
 # rồi ghi decide --stage edit-plan --summary ... --user-message ...
 
-# Sau khi duyệt: bỏ các đoạn giây gốc đã chốt; điểm cắt tự dời về khe lặng, báo từ bị cắt ngang
+# Sau khi duyệt: bỏ các đoạn giây gốc đã chốt. Mép cắt chỉ rơi vào khoảng lặng thật, chừa 0,15 giây quanh từ;
+# đoạn dính liền lời nói hoặc quá ngắn được giữ lại và liệt kê trong "skipped" (luật: cut_policy trong preferences/default.json)
 .\.venv\Scripts\python.exe ai_editor.py cut hpg-001 --revision r001 --remove 0-0.8 12.75-14.13
+# Cắt lại bản nháp đang mở trong Studio và gửi thành đề xuất để bấm Duyệt (caption, minh họa, SFX dời theo)
+.\.venv\Scripts\python.exe ai_editor.py cut hpg-001 --studio --remove 0-0.8 12.75-14.13 --split 130.9 --summary "Cắt nhẹ lại"
 # Caption 2 dòng cân đối từ transcript đã sửa, không tách từ ghép
 .\.venv\Scripts\python.exe ai_editor.py captions hpg-001 --revision r001
 # Dựng thử 25 giây đầu và ảnh ghép vài mốc vào previews/, không tạo revision

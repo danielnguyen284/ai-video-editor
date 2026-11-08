@@ -211,7 +211,7 @@ def describe_changes(before, after):
         changes.append(f"Thời lượng {plan_a['duration_frames'] / fps:.1f}s → {plan_b['duration_frames'] / fps:.1f}s")
     # Splitting a clip repeats its speed/zoom/crop, so compare value sets, not lists.
     timing = lambda plan: [(c['source_in_seconds'], c['source_out_seconds']) for c in plan['clips']]
-    values = lambda plan, key: {json.dumps(c.get(key), sort_keys=True) for c in plan['clips']}
+    values = lambda plan, key: {json.dumps(c.get(key), sort_keys=True) for c in canonical_numbers(plan['clips'])}
     if timing(plan_a) != timing(plan_b):
         changes.append(f"Đoạn cắt {len(plan_a['clips'])} → {len(plan_b['clips'])} clip")
     for key, label in (('playback_rate', 'Tốc độ'), ('zoom', 'Zoom'), ('crop', 'Crop nguồn')):
@@ -229,7 +229,8 @@ def describe_changes(before, after):
         changes.append(f"Lớp hình/motion {len(layers_a)} → {len(layers_b)}")
     if plan_a['audio'] != plan_b['audio']:
         changes.append('Âm thanh thay đổi')
-    if plan_a['export'] != plan_b['export'] or plan_a['captions'] != plan_b['captions']:
+    style = lambda plan: {key: value for key, value in plan['captions'].items() if key != 'items'}  # cues compared above
+    if plan_a['export'] != plan_b['export'] or style(plan_a) != style(plan_b):
         changes.append('Khung hình hoặc kiểu caption thay đổi')
     return changes or ['Không có thay đổi nhìn thấy được']
 

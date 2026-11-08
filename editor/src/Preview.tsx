@@ -139,11 +139,14 @@ export const Preview: React.FC<{ project: Project; view: View }> = ({
             </div>
           </div>
         );
+        // Each clip mounts its own <Video>; premounting loads and seeks it a second
+        // early (hidden), otherwise the frame is black while the browser seeks at the cut.
         return (
           <Sequence
             key={c.clip_id}
             from={c.timeline_in_frame - lead}
             durationInFrames={frames + lead + tail}
+            premountFor={p.fps}
           >
             <AbsoluteFill style={effect}>
               {p.export.fit === "blur" && picture(cover * 1.12, true)}
@@ -214,6 +217,7 @@ export const Preview: React.FC<{ project: Project; view: View }> = ({
             key={l.id}
             from={l.timeline_in_frame}
             durationInFrames={l.timeline_out_frame - l.timeline_in_frame}
+            premountFor={p.fps}
           >
             <div
               style={{

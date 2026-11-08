@@ -529,8 +529,8 @@ export function wordRanges(words: Word[], indices: number[]): Range[] {
 export function pauseRanges(
   plan: Plan,
   words: Word[],
-  minGap = 0.5,
-  keep = 0.2,
+  minGap = 0.8,
+  keep = 0.3,
 ): Range[] {
   const ranges: Range[] = [];
   for (const c of plan.clips) {

@@ -37,8 +37,9 @@ export function WordPanel({
   const [selection, setSelection] = useState<number[]>([]);
   const [anchor, setAnchor] = useState<number | null>(null);
   const [query, setQuery] = useState("");
-  const [minGap, setMinGap] = useState(0.5);
-  const [keep, setKeep] = useState(0.2);
+  // Only large pauses, keeping a breath (preferences/default.json cut_policy).
+  const [minGap, setMinGap] = useState(0.8);
+  const [keep, setKeep] = useState(0.3);
   const plan = project.plan;
   const at = useMemo(
     () =>

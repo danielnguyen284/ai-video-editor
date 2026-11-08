@@ -10,6 +10,12 @@
       "talking_head_default": "illustrated",
       "note": "Captions plus keywords alone read as too plain. Proposals include a concrete illustration plan (licensed images in Illustration cards, Points cards timed to the speech, clip transitions at section changes) and state what the renderer cannot do yet. Still a proposal for approval, not an automatic layer."
     },
+    "cut_policy": {
+      "status": "Confirmed default after input-001 feedback (08/11/2026): 'cắt gắt quá, cắt cả vào từ khác, cần thừa thật lâu hoặc khoảng trống lớn mới cắt'.",
+      "remove": "Propose a cut only for a long redundant stretch (a restart, repeated question or filler phrase of about 1 s or more) or a large pause (about 0.8 s or more, shortened rather than removed). Leave short fillers, brief hesitations and pauses under 0.8 s in the video.",
+      "edges": "Every cut edge must fall in real silence; keep about 0.15 s of pause beside the kept words. A redundant stretch that runs straight into kept speech is kept, or its edge moves to the nearest real pause when the words dropped still read well (say so in the proposal). Cut between syllables only when the user asks for that specific cut.",
+      "tool": "ai_editor.py cut (and cut --studio for the Studio draft) enforces the edges: --pad 0.15, --min-remove 0.5, edges move through at most 0.1 s of sound; skipped ranges are reported. A transition at a section change without a removal uses --split in a pause."
+    },
     "tiktok_layout": {
       "status": "Confirmed default for talking-head TikTok edits (input-001, 08/11/2026). Propose it as the layout; the user may still change it per video.",
       "title": "Fixed two-line title for the whole video at the top, about y 225-435 on 1080x1920: Be Vietnam Pro Bold about 76 px, line 1 dark navy #14344A, line 2 red #C02126, white outline, no box. Offer three title wordings from the transcript in the proposal. Render with scripts/render_text.py --second-color.",
