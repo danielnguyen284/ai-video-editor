@@ -2,7 +2,7 @@
 
 Bộ dựng video bằng role + skill và **AI Editor Studio chạy local**. AI chuẩn bị draft; bạn xem trực tiếp, sửa timeline/caption/hình/motion và khóa những phần đã ưng trước khi xuất. Những lựa chọn sáng tạo còn thiếu vẫn được hỏi, không tự áp profile hoặc preference.
 
-**Mới nhận bản ZIP:** giải nén rồi mở [HUONG-DAN.html](HUONG-DAN.html). Chạy setup để cài editor/công cụ trên máy mới. AI dựng nháp và xử lý prompt qua IDE; giao diện local cho phép bạn tự sửa trực quan.
+**Máy mới (clone hoặc nhận ZIP):** làm theo [mục 2. Cài đặt trên máy mới](#2-cài-đặt-trên-máy-mới), một lệnh `setup.ps1 -All` cài đủ công cụ, model, thư viện skill và Studio. Bản ZIP có thêm [HUONG-DAN.html](HUONG-DAN.html). AI dựng nháp và xử lý prompt qua IDE; giao diện local cho phép bạn tự sửa trực quan.
 
 **Flow đã chốt cho yêu cầu “edit giúp tôi một video”:** agent đọc [flow mặc định](core/editing-workflow.md), dùng lại **large-v3 local** và bộ công cụ đã có, tự phân tích nguồn rồi đề xuất **một phương án để bạn duyệt trước khi dựng**. Không hỏi lại model ở mỗi clip. Các lựa chọn thường trực nằm ở [preferences/workflow.json](preferences/workflow.json); prompt mới và quyết định cũ của job được ưu tiên. Agent được phiên âm chuẩn bị trước creative setup, nhưng việc đó không duyệt cut, chữ, hình hay âm thanh.
 
@@ -42,7 +42,7 @@ Bộ style/domain tự viết trước đây đã được gỡ khỏi danh sác
 
 **Đã cài skill không có nghĩa đã cài engine của mọi repo.** Sunithvs/Agentic có phần phụ thuộc macOS; Resolve cần ứng dụng/scripting và nguồn có license phi thương mại. Từng nhóm, giới hạn chạy Windows và cách dùng nằm ở [core/skill-library.md](core/skill-library.md). Chọn một nhóm cho mỗi output; chỉ đọc helper liên quan. Các bản dựng cũ tiếp tục dùng snapshot của chính chúng; font, template và renderer kỹ thuật vẫn được giữ.
 
-Nguồn upstream cài trong `.tools/skill-library/`, không commit media/ví dụ của bên thứ ba. [skills/library.json](skills/library.json) lưu nguồn, phiên bản và checksum. Trên máy mới hoặc sau khi nhận ZIP, khôi phục qua helper skill-installer của Codex:
+Nguồn upstream cài trong `.tools/skill-library/`, không commit media/ví dụ của bên thứ ba. [skills/library.json](skills/library.json) lưu nguồn, phiên bản và checksum. Trên máy mới hoặc sau khi nhận ZIP, `setup.ps1 -WithSkills` (có trong `-All`) tải lại từ GitHub đúng commit đã ghim và đối chiếu checksum, không cần Codex. Có thể chạy riêng:
 
 ```powershell
 .\.venv\Scripts\python.exe scripts/install_skill_library.py
@@ -89,18 +89,98 @@ Video nằm ở `jobs/JOB/revisions/rNNN/renders/video.mp4`. Xem rồi prompt ti
 Lựa chọn trong brief đã rõ được giữ lại. Các mục chưa rõ về output, Footage Analyst, STT, research, cắt, chữ/hình và âm thanh vẫn được hỏi theo nhóm nhỏ. Không có role AI chấm video hoặc vòng tự sửa chất lượng; bạn xem output và quyết định sửa tiếp/final.
 
 
-## 2. Thiết lập môi trường
+## 2. Cài đặt trên máy mới
 
-Cần Python 3.11 trở lên; phần Remotion cần Node.js/npm và browser Chromium. Workspace đã chạy với Python 3.13, Node.js 22 và Chrome. Từ thư mục dự án trên Windows:
+Làm đúng 4 bước dưới đây là chạy được, không cần Codex để cài (Codex hoặc Claude Code chỉ cần khi bắt đầu dựng).
+
+### Cần có trước
+
+| Thành phần | Yêu cầu | Ghi chú |
+|---|---|---|
+| Hệ điều hành | Windows 10/11 64-bit | Không cần quyền admin |
+| Python | 3.11 đến 3.13 từ [python.org](https://www.python.org/downloads/) | Khi cài, tick **Add python.exe to PATH**. Bản "python" của Microsoft Store không dùng được |
+| Node.js | 22 LTS từ [nodejs.org](https://nodejs.org/) | Cần cho Studio và Remotion |
+| Git | [git-scm.com](https://git-scm.com/) | Chỉ cần khi clone; nhận ZIP thì bỏ qua |
+| Trình duyệt | Chrome hoặc Edge | Studio và Remotion dùng trình duyệt có sẵn |
+| Agent | Codex hoặc Claude Code, tài khoản riêng | Agent đọc `AGENTS.md` / `CLAUDE.md` trong repo |
+| Ổ đĩa, RAM, mạng | Khoảng 8 GB trống; RAM 8 GB, nên 16 GB; tải khoảng 4 GB lần đầu | Phiên âm large-v3 cần khoảng 3 GB RAM trống |
+
+Cài xong Python và Node.js thì **mở cửa sổ PowerShell mới** để PATH có hiệu lực.
+
+### Bước 1. Lấy mã nguồn
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\setup.ps1 -WithTranscription -WithMotion -WithVision -WithSkills
+git clone https://github.com/danielnguyen284/ai-video-editor.git
+cd ai-video-editor
+```
+
+Repo private thì chủ repo cần mời tài khoản GitHub của bạn trước. Nhận bản ZIP thì giải nén, mở PowerShell trong thư mục `ai-editor`.
+
+### Bước 2. Cài mọi thứ bằng một lệnh
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\setup.ps1 -All
+```
+
+Lệnh làm lần lượt, mỗi phần có kiểm tra:
+
+1. Kiểm tra Python, Node.js và dung lượng ổ đĩa; báo rõ thiếu gì.
+2. Tạo `.venv/` và tải FFmpeg/ffprobe portable (đối chiếu SHA-256).
+3. Tải 33 skill đã ghim từ GitHub (đúng commit, đối chiếu checksum) và đăng ký 40 skill cho Codex và Claude Code.
+4. Cài faster-whisper và **tải model large-v3 đúng bản đã ghim** (khoảng 3 GB, đối chiếu mã băm). Mất mạng giữa chừng thì chạy lại đúng lệnh, phần đã tải được giữ và tải tiếp.
+5. Cài OpenCV, Remotion, build AI Editor Studio và tạo shortcut **AI Editor Studio** trên desktop.
+6. Chạy `doctor` để kiểm tra lần cuối.
+
+Thường mất 20-60 phút, chủ yếu là tải model. Chạy lại bao nhiêu lần cũng an toàn: phần đã xong được kiểm tra rồi bỏ qua.
+
+Muốn cài từng phần thay cho `-All`: `-WithSkills` (thư viện skill, bắt buộc để tạo job), `-WithTranscription` (thư viện phiên âm), `-WithModel` (model large-v3, tự kèm thư viện phiên âm), `-WithMotion` (Remotion), `-WithVision` (phân tích footage), `-WithEditor` (Studio và shortcut).
+
+### Bước 3. Kiểm tra
+
+```powershell
 .\.venv\Scripts\python.exe ai_editor.py doctor
 ```
 
-Script tạo `.venv/`, tải FFmpeg/ffprobe portable vào `.tools/ffmpeg/bin/` và đối chiếu SHA-256. Các flag cài thêm STT, Remotion và OpenCV; có thể bỏ flag cho phần không sử dụng. Remotion dùng Chrome/Edge sẵn có hoặc tải Chrome Headless Shell khi render lần đầu trên máy chưa có browser. Script không sửa PATH hệ thống và không cần quyền admin.
+Cài đủ thì thấy: `OK ffmpeg`, `OK ffprobe`, `Large-v3 model: ready`, `Skill library: 33/33 pinned packages`, `Motion: {...}` và `Visual editor: ready`.
 
-Bản chia sẻ chỉ kèm mã nguồn và hướng dẫn. Mỗi máy cần chạy setup để tạo `.venv/`, tải FFmpeg và cài các phần tùy chọn. Large-v3 local cần được chuẩn bị riêng (khoảng 3 GB), CPU có thể chạy chậm; CLI không âm thầm tải khi thư mục model đã chọn bị thiếu. Ollama vision cần cài riêng nếu được chọn. `doctor` không tải model, không chạy review video.
+### Bước 4. Dựng video đầu tiên
+
+1. Mở **AI Editor Studio** trên desktop (hoặc `Open AI Editor.cmd`).
+2. Mở thư mục dự án trong Codex hoặc Claude Code.
+3. Chép video vào `inbox/` rồi nhắn: "Edit cho tôi video inbox/ten-video.mp4". Trong Claude Code có thể gõ `/video-edit`, trong Codex là `$video-edit`.
+4. Agent phân tích, gửi **một phương án** và chờ bạn duyệt rồi mới dựng. Bản xuất nằm ở `jobs/<job>/revisions/rNNN/renders/video.mp4`; sửa tiếp trong Studio hoặc nhắn agent.
+
+### Cập nhật bản mới
+
+```powershell
+git pull
+powershell -ExecutionPolicy Bypass -File .\scripts\setup.ps1 -All
+```
+
+Nếu Studio đang mở, dừng server cũ để nạp code mới rồi mở lại shortcut:
+
+```powershell
+Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -match 'ai_editor\.py"?\s+editor' } | ForEach-Object { Stop-Process -Id $_.ProcessId }
+```
+
+### Chép từ máy đã cài (không có mạng)
+
+Chép `.tools/models/faster-whisper-large-v3` (model) và `.tools/skill-library` (thư viện skill) từ máy đã cài sang đúng đường dẫn đó, rồi chạy setup như bước 2. Setup kiểm tra mã băm và bỏ qua phần đã có. Không chép `.venv/`, `node_modules/` (gắn với đường dẫn máy cũ), `jobs/`, `inbox/` hay `preferences/local-feedback.json` (dữ liệu riêng).
+
+### Lỗi thường gặp
+
+| Thông báo | Cách xử lý |
+|---|---|
+| `running scripts is disabled on this system` | Chạy đúng lệnh có `powershell -ExecutionPolicy Bypass -File ...` như bước 2 |
+| `Python 3.11-3.13 is not installed` | Cài Python từ python.org, tick Add to PATH, mở PowerShell mới |
+| `Node.js is not installed` | Cài Node.js 22 LTS, mở PowerShell mới |
+| `Model download did not finish` | Kiểm tra mạng rồi chạy lại đúng lệnh setup; tải tiếp từ chỗ dừng |
+| `Skill library: x/33` trong doctor | Chạy lại `setup.ps1 -WithSkills` (cần truy cập GitHub) |
+| Phiên âm báo thiếu bộ nhớ | Đóng bớt ứng dụng và tab trình duyệt nặng (cần khoảng 3 GB RAM trống) |
+| Studio báo `Unsupported ... fields` sau khi cập nhật | Dừng server Studio cũ bằng lệnh ở mục cập nhật rồi mở lại shortcut |
+| Studio báo cổng đang được dùng | Đóng ứng dụng khác dùng cổng 8765, hoặc chạy `ai_editor.py editor --port 8766` |
+
+Remotion dùng Chrome/Edge sẵn có, máy không có trình duyệt thì tự tải Chrome Headless Shell ở lần render đầu. Ollama (phân tích ảnh bằng model) không nằm trong setup, chỉ cài khi bạn chọn dùng.
 
 Nguồn công cụ: [FFmpeg downloads](https://ffmpeg.org/download.html), [Windows build từ Gyan](https://www.gyan.dev/ffmpeg/builds/), [faster-whisper](https://github.com/SYSTRAN/faster-whisper). Mặc định dùng model local; override bằng tên model khác có thể tải weights qua Hugging Face. Có thể truyền một thư mục model tương thích đã chuẩn bị bằng `--model`.
 
@@ -108,8 +188,8 @@ Nguồn công cụ: [FFmpeg downloads](https://ffmpeg.org/download.html), [Windo
 
 **Cài thư viện và tải model là hai bước khác nhau.** Dự án dùng `faster-whisper` để phiên âm local:
 
-1. `setup.ps1 -WithTranscription` chỉ cài thư viện STT và các phụ thuộc, **chưa tải model Whisper**. Nếu đã có `.venv`, cũng có thể cài bằng `.\.venv\Scripts\python.exe -m pip install -r requirements-stt.txt`.
-2. Flow hiện tại dùng large-v3 trong thư mục local đã chuẩn bị. Model **không nằm trong ZIP**, nên mỗi máy mới phải phục hồi weights hoặc tải đúng model đã chọn trước khi dùng. Chỉ khi user chủ động override sang tên model khác, faster-whisper mới có thể tải weights chưa cache trong lệnh đó.
+1. `setup.ps1 -WithTranscription` chỉ cài thư viện STT và các phụ thuộc. `setup.ps1 -WithModel` (có trong `-All`) tải đúng bản large-v3 đã ghim vào `.tools/models/faster-whisper-large-v3`, đối chiếu mã băm, tải tiếp được khi đứt mạng; có thể chạy riêng `.\.venv\Scripts\python.exe scripts/download_model.py`.
+2. Flow hiện tại dùng large-v3 trong thư mục local đã chuẩn bị. Model **không nằm trong ZIP hay Git**, nên mỗi máy mới chạy `-WithModel` hoặc chép thư mục model từ máy đã cài. Chỉ khi user chủ động override sang tên model khác, faster-whisper mới có thể tải weights chưa cache trong lệnh đó.
 
 | Lựa chọn | Điều cần biết |
 |---|---|
@@ -144,7 +224,7 @@ Nếu đã có **thư mục model đầy đủ ở định dạng faster-whisper
 .\.venv\Scripts\python.exe ai_editor.py transcribe video-001 --model .\.tools\models\faster-whisper-large-v3
 ```
 
-Thư mục này là mặc định đã chọn của workspace; setup không tự tạo/download weights. `doctor` kiểm tra thư viện/công cụ; báo STT đã cài không có nghĩa model hợp lệ đã có. Nếu dùng transcript có sẵn hoặc bỏ phiên âm, không cần tải model. Xem [flow và provenance](core/editing-workflow.md) cùng [tài liệu faster-whisper](https://github.com/SYSTRAN/faster-whisper#model-conversion).
+Thư mục này là mặc định đã chọn của workspace; chỉ `setup.ps1 -WithModel` tải nó (đúng bản đã ghim), lệnh `transcribe` không tự tải. `doctor` kiểm tra thư viện/công cụ; báo STT đã cài không có nghĩa model hợp lệ đã có. Nếu dùng transcript có sẵn hoặc bỏ phiên âm, không cần tải model. Xem [flow và provenance](core/editing-workflow.md) cùng [tài liệu faster-whisper](https://github.com/SYSTRAN/faster-whisper#model-conversion).
 
 ## 3. Cấu trúc dự án
 

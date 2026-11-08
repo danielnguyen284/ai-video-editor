@@ -6,7 +6,8 @@ Dùng cho mọi agent (Codex, Claude Code hay agent khác) khi người dùng nh
 
 1. `preferences/workflow.json` (kỹ thuật cố định: large-v3 local, Studio, không hỏi lại).
 2. `preferences/default.json` → `editorial_preferences`: `tiktok_layout` (bố cục đã xác nhận) và `visual_density` (luôn có kế hoạch minh họa). Bố cục này là mặc định, chỉ chỉnh số đo theo mặt người nói thật.
-3. [platforms/tiktok.md](platforms/tiktok.md), nhóm skill ứng viên (`skills/styles/<nhóm>/SKILL.md`), và nếu cần thêm lớp hình thì [schemas/visuals-and-footage.md](schemas/visuals-and-footage.md).
+3. Máy mới hoặc `doctor` báo thiếu (`Large-v3 model: missing`, `Skill library: x/33`): bảo người dùng chạy `powershell -ExecutionPolicy Bypass -File .\scripts\setup.ps1 -All` (README mục 2), không tự đổi model hay bỏ bước.
+4. [platforms/tiktok.md](platforms/tiktok.md), nhóm skill ứng viên (`skills/styles/<nhóm>/SKILL.md`), và nếu cần thêm lớp hình thì [schemas/visuals-and-footage.md](schemas/visuals-and-footage.md).
 
 ## 1. Phân tích nguồn (chưa hỏi gì)
 

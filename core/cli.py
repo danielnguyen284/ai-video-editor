@@ -112,6 +112,16 @@ def main():
                     missing = True
             installed = importlib.util.find_spec("faster_whisper") is not None
             print("STT package: " + ("installed (model loads on first transcription)" if installed else "optional; install requirements-stt.txt"))
+            from core.common import ROOT as root
+            model = root / ".tools/models/faster-whisper-large-v3"
+            needed = ("model.bin", "config.json", "tokenizer.json", "vocabulary.json")
+            ready = all((model / name).is_file() for name in needed) and (model / "model.bin").stat().st_size > 2_500_000_000
+            print("Large-v3 model: " + ("ready (" + str(model) + ")" if ready else "missing; run scripts/setup.ps1 -WithModel"))
+            from core.skill_library import inventory
+            rows = inventory()["packages"]
+            installed_skills = sum(row["status"] == "installed" for row in rows)
+            print(f"Skill library: {installed_skills}/{len(rows)} pinned packages" + ("" if installed_skills == len(rows) else "; run scripts/setup.ps1 -WithSkills (new jobs need it)"))
+            missing = missing or installed_skills != len(rows)
             print("Local footage analysis: " + ("installed" if importlib.util.find_spec("cv2") else "optional; install requirements-vision.txt"))
             from core.common import ROOT
             import shutil

@@ -34,7 +34,8 @@ class PackageTests(unittest.TestCase):
             "editor/package.json":"{}", "editor/package-lock.json":"{}", "editor/index.html":"<html></html>",
             "editor/src/main.tsx":"// UI source", "editor/src/style.css":"body{}",
             "editor/build/assets/private.js":"PRIVATE BUILD", "editor/node_modules/private.js":"PRIVATE NODE MODULE",
-            "preferences/default.json":json.dumps({"feedback_sources":["PRIVATE FEEDBACK"],"overrides":{"private":"secret"}}),
+            "preferences/default.json":json.dumps({"feedback_sources":["PRIVATE FEEDBACK"],"overrides":{"private":"secret"},
+                                                   "editorial_preferences":{"primary_platform":"tiktok","tiktok_layout":{"captions":"bottom"}}}),
             ".env":"SECRET=value", ".tools/model.bin":"PRIVATE MODEL", ".venv/private.py":"PRIVATE ENV",
             "jobs/private/export.mp4":"PRIVATE VIDEO", "inbox/private.mp4":"PRIVATE INPUT", "sample.mp4":"REFERENCE VIDEO",
             "motion/node_modules/private.js":"PRIVATE DEPENDENCY", "motion/.cache/bundle.js":"PRIVATE CACHE",
@@ -76,6 +77,8 @@ class PackageTests(unittest.TestCase):
             preference = json.loads(bundle.read("ai-editor/preferences/default.json"))
             self.assertEqual(preference["feedback_sources"],[])
             self.assertEqual(preference["overrides"],{})
+            # Shareable layout defaults travel with the ZIP; private history does not.
+            self.assertEqual(preference["editorial_preferences"]["tiktok_layout"],{"captions":"bottom"})
             manifest = json.loads(bundle.read("ai-editor/MANIFEST.json"))
             self.assertEqual(len(names),len(manifest["files_sha256"])+1)
             for name,digest in manifest["files_sha256"].items():

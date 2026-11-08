@@ -26,18 +26,16 @@
   <ol>
     <li>
       <h2>Giải nén &amp; chuẩn bị</h2>
-      <p>Giải nén ZIP, mở thư mục <code>ai-editor</code> trong IDE. Cần <a href="https://www.python.org/downloads/windows/">Python 3.11+</a> (đã thử với 3.13), có lệnh <code>python</code>, và mạng cho lần cài đầu.</p>
+      <p>Giải nén ZIP vào ổ còn khoảng 8 GB trống. Cài trước <a href="https://www.python.org/downloads/windows/">Python 3.11 đến 3.13</a> (khi cài tick <strong>Add python.exe to PATH</strong>), <a href="https://nodejs.org/">Node.js 22 LTS</a> và có Chrome hoặc Edge. Cài xong thì mở cửa sổ PowerShell mới. Cần mạng cho lần cài đầu (tải khoảng 4 GB) và Codex hoặc Claude Code để nhờ AI dựng.</p>
     </li>
     <li>
-      <h2>Cài công cụ một lần</h2>
-      <p>Mở terminal PowerShell tại thư mục <code>ai-editor</code>, chạy:</p>
-      <pre><code>powershell -ExecutionPolicy Bypass -File .\scripts\setup.ps1 -WithTranscription -WithVision -WithSkills
-.\.venv\Scripts\python.exe ai_editor.py doctor</code></pre>
-      <p>Để có editor trực quan, chạy thêm:</p><pre><code>powershell -ExecutionPolicy Bypass -File .\scripts\setup.ps1 -WithEditor -WithSkills
-.\.venv\Scripts\python.exe ai_editor.py editor</code></pre>
-      <p class="note">Sau setup, nhấp shortcut <strong>AI Editor Studio</strong> trên desktop hoặc <code>Open AI Editor.cmd</code> trong thư mục dự án. App tự bật server ẩn, mở browser và khôi phục project/vị trí xem gần nhất. Mở nhiều lần dùng lại server. Editor có autosave, undo/redo và khóa vùng. Nếu mở bằng CLI thì giữ terminal chạy. Xem <a href="core/visual-editor.md">hướng dẫn sửa trực quan</a>. Setup editor không tải model Whisper.</p>
-      <aside class="whisper"><strong>Whisper cần model riêng — không có sẵn trong ZIP.</strong><p>Lệnh setup chỉ cài thư viện STT. Workspace đã chọn thường trực <code>large-v3 local</code> khoảng <strong>3 GB</strong>, CPU/int8; agent không hỏi chọn model lại cho mỗi clip. Dùng lại transcript có sẵn hoặc thư mục model đã chuẩn bị; thiếu file thì báo để phục hồi đúng model, không tự đổi bản nhẹ hơn hay tải âm thầm. Máy mới cần chuẩn bị weights riêng. <code>doctor</code> báo STT đã cài không có nghĩa model đã tải. <a href="README.md#whisper">Chi tiết</a>.</p></aside>
-      <p class="note">Chỉ khi cần motion Remotion: cài <a href="https://nodejs.org/en/download">Node.js</a>, có Chrome/Edge, rồi chạy lại lệnh setup thêm <code>-WithMotion</code>.</p>
+      <h2>Cài mọi thứ bằng một lệnh</h2>
+      <p>Mở PowerShell tại thư mục <code>ai-editor</code>, chạy:</p>
+      <pre><code>powershell -ExecutionPolicy Bypass -File .\scripts\setup.ps1 -All</code></pre>
+      <p>Lệnh tự kiểm tra Python/Node.js/dung lượng, tạo môi trường Python, tải FFmpeg, tải 33 skill đã ghim từ GitHub, cài phiên âm và <strong>tải model large-v3 đúng bản đã ghim (khoảng 3 GB)</strong>, cài Remotion, build Studio và tạo shortcut <strong>AI Editor Studio</strong> trên desktop. Thường mất 20-60 phút. Đứt mạng hay lỗi giữa chừng thì chạy lại đúng lệnh: phần đã xong được giữ, model tải tiếp từ chỗ dừng.</p>
+      <p>Kiểm tra: <code>.\.venv\Scripts\python.exe ai_editor.py doctor</code> phải có <code>Large-v3 model: ready</code>, <code>Skill library: 33/33</code> và <code>Visual editor: ready</code>.</p>
+      <p class="note">Nhấp shortcut <strong>AI Editor Studio</strong> trên desktop (hoặc <code>Open AI Editor.cmd</code>). App tự bật server ẩn, mở browser và khôi phục project/vị trí xem gần nhất. Editor có autosave, undo/redo và khóa vùng. Xem <a href="core/visual-editor.md">hướng dẫn sửa trực quan</a>. Lỗi thường gặp và cách cài từng phần: <a href="README.md#2-cài-đặt-trên-máy-mới">README mục 2</a>.</p>
+      <aside class="whisper"><strong>Model phiên âm large-v3 không nằm trong ZIP.</strong><p>Lệnh <code>-All</code> (hoặc <code>-WithModel</code>) tải đúng bản đã ghim và kiểm tra mã băm. Không có mạng thì chép thư mục <code>.tools/models/faster-whisper-large-v3</code> và <code>.tools/skill-library</code> từ máy đã cài sang đúng chỗ rồi chạy setup. Agent không hỏi chọn model lại cho mỗi clip và không tự đổi sang bản nhẹ hơn.</p></aside>
     </li>
     <li>
       <h2>Đặt video &amp; gửi yêu cầu cho AI</h2>

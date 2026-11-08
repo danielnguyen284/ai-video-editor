@@ -58,7 +58,10 @@ def package(output):
             (stage/name).mkdir()
             (stage/name/".gitkeep").touch()
         (stage/"preferences").mkdir(exist_ok=True)
-        preference = {"scope":"user", "editorial_preferences":{"primary_platform":"tiktok"}, "overrides":{}, "feedback_sources":[]}
+        # Keep the shareable editorial defaults (layout, visual density); drop overrides and feedback history.
+        source_preferences = ROOT/"preferences/default.json"
+        editorial = json.loads(source_preferences.read_text(encoding="utf-8")).get("editorial_preferences") if source_preferences.is_file() else None
+        preference = {"scope":"user", "editorial_preferences":editorial or {"primary_platform":"tiktok"}, "overrides":{}, "feedback_sources":[]}
         (stage/"preferences/default.json").write_text(json.dumps(preference,ensure_ascii=False,indent=2)+"\n",encoding="utf-8")
         entries = {path.relative_to(stage).as_posix(): hashlib.sha256(path.read_bytes()).hexdigest() for path in sorted(stage.rglob("*")) if path.is_file()}
         manifest = {"name":"AI Editor", "package_kind":"source-only", "created_at":datetime.now(timezone.utc).isoformat(), "entry_guide":"HUONG-DAN.html", "excluded":EXCLUDED, "files_sha256":entries}
