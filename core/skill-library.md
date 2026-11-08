@@ -15,24 +15,24 @@ Bộ skill tự viết trước đây đã được thay ngày 07/11/2026. Có 3
 | E · Agentic | `review-variants-vi` | [agentic-video-editing](https://github.com/real-simple-labs/agentic-video-editing): ad variants và feedback theo timestamp | 3 skill đã cài; native pipeline dùng Apple Silicon/macOS; AI QA không tự bật |
 | F · Resolve | `resolve-roughcut-vi` | [video-editor-skills](https://github.com/appariciojunior/video-editor-skills): rough cut, caption, B-roll, audio và export trong Resolve | 12 skill đã cài; cần Resolve/scripting; nguồn ghi CC BY-NC 4.0, chưa có quyền dùng thương mại |
 
-Đây là các nhóm hướng dẫn và công cụ có nguồn rõ ràng. Việc cài skill không bổ sung tự động keyframe, speed ramp, tách nền hoặc renderer mới vào Studio. Trước một job, đọc entrypoint nhóm và đúng các file upstream liên quan, xác định engine có thể dùng, giải thích phần thiếu trước khi người dùng chọn phương án. Không tải toàn bộ 33 skill vào context hoặc trộn các mặc định thẩm mỹ của mọi nhóm thành một style.
+Đây là các nhóm hướng dẫn và công cụ có nguồn rõ ràng. Việc cài skill không bổ sung renderer mới vào Studio. Renderer hiện có thực thi được zoom keyframe/punch-in, tốc độ cố định theo clip, chuyển cảnh giữa clip (7 kiểu xfade), nền mờ, SFX, ảnh minh họa động (Illustration) và thẻ chữ theo lời nói (Points) khi người dùng chọn; speed ramp, tách nền, chia màn hình/PIP và các move riêng trong catalog Motion Prompt vẫn cần port từng cái. Trước một job, đọc entrypoint nhóm và đúng các file upstream liên quan, xác định engine có thể dùng, giải thích phần thiếu trước khi người dùng chọn phương án. Không tải toàn bộ 33 skill vào context hoặc trộn các mặc định thẩm mỹ của mọi nhóm thành một style.
 
 Các template Keyword/KineticScene, font Be Vietnam Pro và helper [render_text.py](../scripts/render_text.py) là công cụ render kỹ thuật dùng chung. Chúng tiếp tục phục vụ các bản đã dựng và asset mới khi được chọn; không đại diện cho các skill cũ đã gỡ.
 
 ## Cài lại, kiểm tra và lưu snapshot
 
-Codex nhận diện skill repo từ `.agents/skills/`. Source đặt riêng trong `.tools/skill-library/` không tự hiện trong menu. Dự án đăng ký **39 entrypoint** (33 package + 6 nhóm) với tên riêng, không copy/sửa package upstream. Theo [tài liệu chính thức](https://learn.chatgpt.com/docs/build-skills), Codex CLI/IDE dùng `$` hoặc `/skills`; ChatGPT dùng `@` khi skill có trong selector của host.
+Codex nhận diện skill repo từ `.agents/skills/`; Claude Code nhận diện từ `.claude/skills/`. Source đặt riêng trong `.tools/skill-library/` không tự hiện trong menu. Dự án đăng ký **40 entrypoint** (33 package + 6 nhóm + `video-edit` cho quy trình dựng) với tên riêng vào cả hai thư mục, không copy/sửa package upstream. Hai bản chỉ khác dòng ghi tên host. Theo [tài liệu chính thức](https://learn.chatgpt.com/docs/build-skills), Codex CLI/IDE dùng `$` hoặc `/skills`; ChatGPT dùng `@` khi skill có trong selector của host. Claude Code (CLI và extension IDE) dùng `/` với cùng tên, và có thể tự gọi skill khi yêu cầu khớp mô tả.
 
-| Muốn dùng | Tên trong menu Codex |
-|---|---|
-| Melvynx dựng short cụ thể | `$video-melvynx-short-editing` |
-| Chọn nhóm Melvynx và helper phù hợp | `$video-group-melvynx-raw` |
-| Catalog motion theo ID | `$video-motion-prompt` |
-| Explainer tài chính/công nghệ | `$video-wallstreet-explainer` |
-| Kết nối OpenChatCut | `$video-openchatcut` |
-| B-roll Melvynx / Resolve | `$video-melvynx-broll` / `$video-resolve-broll` |
+| Muốn dùng | Tên trong menu Codex | Tên trong Claude Code |
+|---|---|---|
+| Melvynx dựng short cụ thể | `$video-melvynx-short-editing` | `/video-melvynx-short-editing` |
+| Chọn nhóm Melvynx và helper phù hợp | `$video-group-melvynx-raw` | `/video-group-melvynx-raw` |
+| Catalog motion theo ID | `$video-motion-prompt` | `/video-motion-prompt` |
+| Explainer tài chính/công nghệ | `$video-wallstreet-explainer` | `/video-wallstreet-explainer` |
+| Kết nối OpenChatCut | `$video-openchatcut` | `/video-openchatcut` |
+| B-roll Melvynx / Resolve | `$video-melvynx-broll` / `$video-resolve-broll` | `/video-melvynx-broll` / `/video-resolve-broll` |
 
-Gõ `$video-` để lọc các mục của repo. Chọn một skill hoặc nhóm làm workflow chính trong prompt; chỉ đọc helper khi cần. Tên profile như `motion-catalog-vi` dùng cho CLI/Studio, không phải tên skill trong menu. Khi menu còn cache, khởi động lại Codex trong đúng workspace. Phạm vi cục bộ không làm skill xuất hiện trong một workspace khác.
+Gõ `$video-` (Codex) hoặc `/video-` (Claude Code) để lọc các mục của repo. Chọn một skill hoặc nhóm làm workflow chính trong prompt; chỉ đọc helper khi cần. Tên profile như `motion-catalog-vi` dùng cho CLI/Studio, không phải tên skill trong menu. Khi menu còn cache, khởi động lại Codex hoặc mở phiên Claude Code mới trong đúng workspace. Phạm vi cục bộ không làm skill xuất hiện trong một workspace khác.
 
 ```powershell
 .\.venv\Scripts\python.exe scripts/install_skill_library.py
@@ -41,7 +41,7 @@ Gõ `$video-` để lọc các mục của repo. Chọn một skill hoặc nhóm
 .\.venv\Scripts\python.exe scripts/register_skill_shortcuts.py --check
 ```
 
-Script dùng helper `skill-installer` của Codex và đúng commit trong manifest. Có thể truyền `--installer PATH` nếu helper nằm nơi khác. Nó giữ các package đã đúng checksum, không ghi đè package bị sửa hoặc cài dở, và không chạy setup engine/API/model của upstream. Sau khi kiểm tra source, nó đăng ký entrypoint vào `.agents/skills/`. Có thể chạy `scripts/register_skill_shortcuts.py` riêng để bổ sung các entrypoint còn thiếu; file đã sửa tay được giữ lại và báo lỗi. Setup tổng hợp có flag `-WithSkills`. ZIP nguồn mang manifest, nhóm định tuyến, entrypoint và script phục hồi; source tải về, ví dụ media và engine bên thứ ba không nằm trong ZIP.
+Script dùng helper `skill-installer` của Codex và đúng commit trong manifest. Có thể truyền `--installer PATH` nếu helper nằm nơi khác. Nó giữ các package đã đúng checksum, không ghi đè package bị sửa hoặc cài dở, và không chạy setup engine/API/model của upstream. Sau khi kiểm tra source, nó đăng ký entrypoint vào `.agents/skills/` và `.claude/skills/`. Có thể chạy `scripts/register_skill_shortcuts.py` riêng để bổ sung các entrypoint còn thiếu của cả hai host; file đã sửa tay được giữ lại và báo lỗi. Setup tổng hợp có flag `-WithSkills`. ZIP nguồn mang manifest, nhóm định tuyến, entrypoint và script phục hồi; source tải về, ví dụ media và engine bên thứ ba không nằm trong ZIP.
 
 Khi làm theo lệnh trong upstream, ánh xạ `<skill-dir>` hoặc đường dẫn ví dụ `~/.claude/skills/...` tới thư mục package thực tế trong `.tools/skill-library/<source>/<package>`. Giữ các package cùng nguồn cạnh nhau để các reference tương đối tìm đúng chỗ. Kiểm tra script/path thực có trên máy trước khi chạy.
 

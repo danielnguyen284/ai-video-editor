@@ -26,6 +26,8 @@ class PackageTests(unittest.TestCase):
             "core/main.py":"print('source')", "skills/style/SKILL.md":"style instructions",
             "profiles/demo.json":"{}", "scripts/setup.ps1":"# setup", "tests/test_demo.py":"# test",
             ".agents/skills/video-example/SKILL.md":"---\nname: video-example\ndescription: Fixture entrypoint\n---\nRead the pinned source.",
+            ".claude/skills/video-example/SKILL.md":"---\nname: video-example\ndescription: Fixture entrypoint\n---\nRead the pinned source.",
+            ".claude/settings.local.json":"{\"permissions\":\"PRIVATE LOCAL SETTINGS\"}",
             "motion/src/index.tsx":"// source", "motion/package.json":"{}", "motion/package-lock.json":"{}",
             "motion/tsconfig.json":"{}", "motion/render.mjs":"// renderer",
             "motion/public/fonts/BeVietnamPro-Bold.ttf":"synthetic font bytes", "motion/public/fonts/OFL.txt":"license fixture",
@@ -61,6 +63,8 @@ class PackageTests(unittest.TestCase):
             self.assertIn("ai-editor/motion/public/fonts/OFL.txt",names)
             self.assertIn("ai-editor/skills/style/SKILL.md",names)
             self.assertIn("ai-editor/.agents/skills/video-example/SKILL.md",names)
+            self.assertIn("ai-editor/.claude/skills/video-example/SKILL.md",names)
+            self.assertNotIn("ai-editor/.claude/settings.local.json",names)
             self.assertIn("ai-editor/preferences/workflow.json",names)
             self.assertIn("ai-editor/editor/src/main.tsx",names)
             self.assertIn("ai-editor/editor/package-lock.json",names)

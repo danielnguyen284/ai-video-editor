@@ -14,7 +14,7 @@ from urllib.parse import parse_qs, quote, unquote, urlparse
 import webbrowser
 
 from core.common import EditorError, ROOT, executable, identifier, read_json, within
-from core.editor_service import EditorStore, fingerprint
+from core.editor_service import EditorStore, fingerprint, transcript_words
 from core.editor_media import MEDIA_EXTENSIONS, media_type, receive_upload, MAX_UPLOAD_BYTES
 
 
@@ -63,9 +63,16 @@ def make_server(port=8765, root=ROOT):
                     state['library'] = self.library(folder)
                     from core.adapters.ffmpeg import probe
                     state['durations'] = {layer['path']: probe(within(folder, layer['path']))['duration_seconds'] for layer in state['plan']['overlays'] if layer['type'] == 'video' and layer['id'] not in state['motions']}
+                    state['transcript'] = transcript_words(folder, state['plan'])
                     return self.send_json(state)
                 if path == '/api/library':
                     return self.send_json(self.library(store.folder(query['job'])))
+                if path == '/api/proposal':
+                    proposal = store.proposal(query['job'])
+                    # Polling asks for the light record; the full state only when shown.
+                    if proposal and query.get('brief') == '1':
+                        proposal.pop('state', None)
+                    return self.send_json({'proposal': proposal})
                 if path == '/thumbnail':
                     folder = store.folder(query['job'])
                     source = within(folder, query['path'])
@@ -127,13 +134,13 @@ def make_server(port=8765, root=ROOT):
             result = []
             for p in paths:
                 item = {'path': p.relative_to(folder).as_posix(), 'name': re.sub(r'^[a-f0-9]{12}-', '', p.name) if p.parent == folder/'assets/imported' else p.name, 'type': media_type(p)}
-                if item['type'] == 'video':
+                if item['type'] in ('video', 'audio'):
                     key = (str(p), p.stat().st_mtime_ns, p.stat().st_size)
                     if key not in duration_cache:
                         from core.adapters.ffmpeg import probe
                         try:
                             info = probe(p)
-                            duration_cache[key] = info['duration_seconds'] if info['has_video'] else 0
+                            duration_cache[key] = info['duration_seconds'] if info['has_' + item['type']] else 0
                         except (EditorError, ValueError):
                             duration_cache[key] = 0
                     item['duration_seconds'] = duration_cache[key]
@@ -198,6 +205,8 @@ def make_server(port=8765, root=ROOT):
                     return self.send_json(store.checkout(body['job'], body['revision'], body['expected_version']))
                 if path == '/api/unlock':
                     return self.send_json(store.unlock(body['job'], body['id']))
+                if path == '/api/proposal':
+                    return self.send_json(store.decide_proposal(body['job'], body['id'], body['accept'] is True, body.get('expected_version')))
                 if path == '/api/export':
                     return self.send_json(store.export(body['job'], body['expected_version'], body.get('setup')))
                 if path == '/api/import':

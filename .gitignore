@@ -32,3 +32,4 @@ motion/.cache/
 editor/node_modules/
 editor/build/
 dist/
+.claude/settings.local.json

@@ -10,7 +10,18 @@ import {
 } from "remotion";
 import { MotionAsset, type MotionRequest } from "../../motion/src/MotionAsset";
 import { VietnameseFont } from "../../motion/src/VietnameseFont";
-import { mediaUrl, type Project, type View } from "./model";
+import {
+  captionLines,
+  clipHandles,
+  mediaUrl,
+  rateOf,
+  transitionSplit,
+  transitionStyle,
+  sourceAt,
+  zoomAt,
+  type Project,
+  type View,
+} from "./model";
 
 function MotionView({
   request,
@@ -36,21 +47,8 @@ function MotionView({
 }
 type Motion = Project["motions"][string];
 function wrap(text: string, width: number) {
-  const lines: string[] = [];
-  let line = "";
-  for (const word of text
-    .replace(/\\/g, " ")
-    .replace(/{/g, "(")
-    .replace(/}/g, ")")
-    .trim()
-    .split(/\s+/)) {
-    if (line && line.length + 1 + word.length > width) {
-      lines.push(line);
-      line = word;
-    } else line += (line ? " " : "") + word;
-  }
-  if (line) lines.push(line);
-  return lines.join("\n");
+  const safe = text.replace(/\\/g, " ").replace(/{/g, "(").replace(/}/g, ")");
+  return captionLines(safe, width).join("\n");
 }
 export const Preview: React.FC<{ project: Project; view: View }> = ({
   project: s,
@@ -58,40 +56,77 @@ export const Preview: React.FC<{ project: Project; view: View }> = ({
 }) => {
   const p = s.plan,
     frame = useCurrentFrame(),
-    { width: w, height: h } = p.export;
+    { width: w, height: h } = p.export,
+    handles = clipHandles(p.clips);
   return (
     <AbsoluteFill style={{ backgroundColor: "#000", overflow: "hidden" }}>
-      {p.clips.map((c) => {
+      {p.clips.map((c, i) => {
         const crop = c.crop ?? {
           x: 0,
           y: 0,
           width: view.media.width,
           height: view.media.height,
         };
-        const fit =
-          p.export.fit === "pad"
-            ? Math.min(w / crop.width, h / crop.height)
-            : Math.max(w / crop.width, h / crop.height);
-        return (
-          <Sequence
-            key={c.clip_id}
-            from={c.timeline_in_frame}
-            durationInFrames={c.timeline_out_frame - c.timeline_in_frame}
+        const contain = Math.min(w / crop.width, h / crop.height),
+          cover = Math.max(w / crop.width, h / crop.height);
+        // Transitions show picture just beyond the cuts (handles), voice muted there.
+        const [lead, tail] = handles[i],
+          frames = c.timeline_out_frame - c.timeline_in_frame,
+          into = c.transition,
+          out = p.clips[i + 1]?.transition;
+        const active =
+          c.timeline_in_frame - lead <= frame &&
+          frame < c.timeline_out_frame + tail;
+        let effect = {};
+        if (into && frame < c.timeline_in_frame + transitionSplit(into.frames)[1])
+          effect = transitionStyle(
+            into.type,
+            (frame - (c.timeline_in_frame - lead)) / into.frames,
+            true,
+          );
+        else if (out && frame >= c.timeline_out_frame - transitionSplit(out.frames)[0])
+          effect = transitionStyle(
+            out.type,
+            (frame - (c.timeline_out_frame - transitionSplit(out.frames)[0])) /
+              out.frames,
+            false,
+          );
+        // Same zoom as the export: the focal point stays put inside the cropped picture.
+        const [scale, fx, fy] = active
+          ? zoomAt(c.zoom, sourceAt(c, frame, p.fps))
+          : [1, 0.5, 0.5];
+        const picture = (fit: number, backdrop = false) => (
+          <div
+            style={{
+              position: "absolute",
+              left: (w - crop.width * fit) / 2,
+              top: (h - crop.height * fit) / 2,
+              width: crop.width * fit,
+              height: crop.height * fit,
+              overflow: "hidden",
+              // Export blurs a cover copy; CSS blur fades at its own edges, so
+              // the backdrop is oversized and the canvas clips it.
+              filter: backdrop ? "blur(32px) brightness(0.88)" : undefined,
+            }}
           >
             <div
               style={{
                 position: "absolute",
-                left: (w - crop.width * fit) / 2,
-                top: (h - crop.height * fit) / 2,
-                width: crop.width * fit,
-                height: crop.height * fit,
-                overflow: "hidden",
+                inset: 0,
+                transform: scale === 1 ? undefined : `scale(${scale})`,
+                transformOrigin: `${fx * 100}% ${fy * 100}%`,
               }}
             >
               <Video
                 src={mediaUrl(s.job_id, view.source, true)}
-                startFrom={Math.round(c.source_in_seconds * p.fps)}
-                volume={Math.min(1, p.audio.voice_gain)}
+                startFrom={Math.round(c.source_in_seconds * p.fps - lead * rateOf(c))}
+                playbackRate={rateOf(c)}
+                muted={backdrop}
+                volume={(f) =>
+                  backdrop || f < lead || f >= lead + frames
+                    ? 0
+                    : Math.min(1, p.audio.voice_gain)
+                }
                 style={{
                   position: "absolute",
                   maxWidth: "none",
@@ -102,6 +137,18 @@ export const Preview: React.FC<{ project: Project; view: View }> = ({
                 }}
               />
             </div>
+          </div>
+        );
+        return (
+          <Sequence
+            key={c.clip_id}
+            from={c.timeline_in_frame - lead}
+            durationInFrames={frames + lead + tail}
+          >
+            <AbsoluteFill style={effect}>
+              {p.export.fit === "blur" && picture(cover * 1.12, true)}
+              {picture(p.export.fit === "crop" ? cover : contain)}
+            </AbsoluteFill>
           </Sequence>
         );
       })}
@@ -130,7 +177,13 @@ export const Preview: React.FC<{ project: Project; view: View }> = ({
             }}
           >
             <MotionView
-              request={spec}
+              request={
+                spec.template === "Illustration"
+                  ? { ...spec, props: { ...spec.props, image: mediaUrl(s.job_id, spec.props.image) } }
+                  : spec.template === "Points" && spec.props.icon
+                    ? { ...spec, props: { ...spec.props, icon: mediaUrl(s.job_id, spec.props.icon) } }
+                    : spec
+              }
               offset={l.source_in_seconds ?? 0}
               fps={p.fps}
             />
@@ -236,6 +289,15 @@ export const Preview: React.FC<{ project: Project; view: View }> = ({
           loop
         />
       )}
+      {(p.audio.sfx ?? []).map((x) => (
+        <Sequence
+          key={x.id}
+          from={x.timeline_in_frame}
+          durationInFrames={x.timeline_out_frame - x.timeline_in_frame}
+        >
+          <Audio src={mediaUrl(s.job_id, x.path)} volume={Math.min(1, x.gain)} />
+        </Sequence>
+      ))}
     </AbsoluteFill>
   );
 };

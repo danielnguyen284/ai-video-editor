@@ -33,6 +33,12 @@ def main():
     studio = commands.add_parser("editor", help="Open the local visual timeline editor")
     studio.add_argument("--port", type=int, default=8765)
     studio.add_argument("--no-open", action="store_true")
+    propose = commands.add_parser("propose", help="Offer a validated draft change for the user to approve or reject in Studio")
+    propose.add_argument("job_id")
+    propose.add_argument("--state", required=True, help="JSON file: the draft from EditorStore.load with the proposed changes")
+    propose.add_argument("--summary", required=True, help="One plain sentence the user reads before approving")
+    proposal = commands.add_parser("proposal", help="Show the pending or last decided Studio proposal")
+    proposal.add_argument("job_id")
     new = commands.add_parser("new-job", help="Copy input, resolve skills and create an initial full-length plan")
     new.add_argument("job_id")
     new.add_argument("--video", required=True)
@@ -60,6 +66,22 @@ def main():
     decide.add_argument("--user-message", required=True)
     decide.add_argument("--answers", help="JSON file of setup choices collected from the user")
     decide.add_argument("--summary", help="Concrete edit option selected by the user")
+    cut = commands.add_parser("cut", help="Rebuild a pending revision's clips from approved source ranges to remove; snaps cuts to quiet audio")
+    cut.add_argument("job_id")
+    cut.add_argument("--revision")
+    cut.add_argument("--remove", nargs="+", required=True, metavar="START-END", help="Source seconds to remove, e.g. 0-0.8 12.75-14.13")
+    cut.add_argument("--no-refine", action="store_true", help="Keep the given times instead of the quietest point nearby")
+    cut.add_argument("--search", type=float, default=0.15, help="Seconds around each boundary to search for the quietest point")
+    captions = commands.add_parser("captions", help="Write balanced two-line caption items from the corrected transcript")
+    captions.add_argument("job_id")
+    captions.add_argument("--revision")
+    captions.add_argument("--max-seconds", type=float, default=3.0)
+    captions.add_argument("--keep-together", nargs="*", default=[], metavar="WORD_PAIR", help='Extra two-word phrases never split, e.g. "lãi suất"')
+    preview = commands.add_parser("preview", help="Encode the first seconds of a plan into the job's previews/ folder (not a revision)")
+    preview.add_argument("job_id")
+    preview.add_argument("--revision")
+    preview.add_argument("--seconds", type=float, default=25, help="0 encodes the whole timeline")
+    preview.add_argument("--stills", nargs="*", type=float, default=[], help="Output seconds to put side by side in a PNG")
     motion = commands.add_parser("render-motion", help="Render a chosen Remotion template into a transparent asset")
     motion.add_argument("job_id")
     motion.add_argument("name", help="Unique asset name; preserves existing motion assets")
@@ -115,6 +137,19 @@ def main():
         elif args.command == "editor":
             from core.editor_server import serve
             serve(args.port, not args.no_open)
+        elif args.command in ("propose", "proposal"):
+            from core.common import ROOT
+            from core.editor_service import EditorStore
+            store = EditorStore(ROOT)
+            if args.command == "propose":
+                state = read_json(args.state)
+                result = store.propose(args.job_id, state, state.get("version"), args.summary)
+                print(f"Proposal {result['id']} is waiting in Studio: " + "; ".join(result["changes"]))
+            else:
+                result = store.proposal(args.job_id)
+                if result:
+                    result.pop("state", None)
+                print(json.dumps(result, ensure_ascii=False, indent=2))
         elif args.command == "new-job":
             result = create_job(args.job_id, args.video, args.profile, args.brief)
             print(f"Created: {result}\nCreative setup is pending. Follow core/editing-workflow.md; standing local transcription can run before the edit proposal.")
@@ -135,6 +170,25 @@ def main():
                 revision_folder(folder, args.revision), args.stage, args.user_message,
                 answers=read_json(args.answers) if args.answers else None, summary=args.summary,
             ))
+        elif args.command in ("cut", "captions", "preview"):
+            from core import edit_tools
+            folder = job_folder(args.job_id)
+            revision = revision_folder(folder, args.revision)
+            if args.command == "cut":
+                ranges = []
+                for item in args.remove:
+                    start, separator, end = item.partition("-")
+                    if not separator:
+                        raise ValueError(f"Use START-END seconds, got {item}")
+                    ranges.append((float(start), float(end)))
+                print(json.dumps(edit_tools.cut_plan(folder, revision, ranges, refine=not args.no_refine, search=args.search), ensure_ascii=False, indent=2))
+            elif args.command == "captions":
+                print(json.dumps(edit_tools.build_captions(folder, revision, max_seconds=args.max_seconds, extra_compounds=args.keep_together), ensure_ascii=False, indent=2))
+            else:
+                video, sheet = edit_tools.preview(folder, revision, seconds=args.seconds, stills=args.stills)
+                print(video)
+                if sheet:
+                    print(sheet)
         elif args.command == "render-motion":
             from core.adapters.motion import render_motion
             folder = job_folder(args.job_id)

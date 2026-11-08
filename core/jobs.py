@@ -6,7 +6,7 @@ from pathlib import Path
 import re
 import shutil
 
-from core.common import EditorError, ROOT, identifier, read_json, resolve_profile, timestamp, within, write_json
+from core.common import EXPORT_FITS, EditorError, ROOT, identifier, read_json, resolve_profile, timestamp, within, write_json
 from core.adapters.ffmpeg import probe
 from core.decisions import initial_decisions
 
@@ -47,8 +47,8 @@ def create_job(job_id, video, profile_id, brief, *, output=None):
         for key in ("width", "height", "fps"):
             if isinstance(output[key], bool) or not isinstance(output[key], int) or output[key] < 1:
                 raise EditorError(f"Initial output.{key} must be a positive integer.")
-        if output["width"] % 2 or output["height"] % 2 or output["fit"] not in ("pad", "crop"):
-            raise EditorError("Initial output needs even dimensions and pad/crop fit.")
+        if output["width"] % 2 or output["height"] % 2 or output["fit"] not in EXPORT_FITS:
+            raise EditorError("Initial output needs even dimensions and pad, crop or blur fit.")
         resolved["profile"]["export"].update(output)
     media = probe(source)
     if not media["has_video"]:

@@ -65,7 +65,7 @@ class EditorTests(unittest.TestCase):
             result = json.load(urlopen(f'http://127.0.0.1:{server.server_port}/api/project?job={self.job}'))
             self.assertEqual(result['profile']['id'], 'retired-profile')
             self.assertEqual(result['profile']['skills']['style']['id'], 'style/retired-style')
-            state = {key: value for key, value in result.items() if key not in {'profile', 'source', 'media', 'setup', 'library', 'durations'}}
+            state = {key: value for key, value in result.items() if key not in {'profile', 'source', 'media', 'setup', 'library', 'durations', 'transcript'}}
             self.assertEqual(self.store.save(self.job, state, 0)['version'], 1)
             self.assertEqual(read_json(revision/'resolved-config.json')['profile']['id'], 'retired-profile')
         finally:

@@ -10,6 +10,9 @@ import re
 import shutil
 
 ROOT = Path(__file__).resolve().parents[1]
+# pad keeps the whole picture on black, crop fills the frame, blur keeps the
+# whole picture over a blurred copy of itself.
+EXPORT_FITS = ("pad", "crop", "blur")
 
 
 class EditorError(Exception):

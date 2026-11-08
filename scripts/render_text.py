@@ -21,7 +21,7 @@ def color(value):
 
 
 def render_text(text_file, output, *, width, height, font_size, font_file,
-                foreground, background, outline_color, outline_width):
+                foreground, background, outline_color, outline_width, second_color=None):
     text_file, output, font_file = Path(text_file).resolve(), Path(output).resolve(), Path(font_file).resolve()
     if output.exists():
         raise EditorError("Text asset already exists. Choose a new filename to preserve it.")
@@ -43,7 +43,17 @@ def render_text(text_file, output, *, width, height, font_size, font_file,
         assert temp.is_relative_to(output.parent) and temp != output.parent
         shutil.copy2(font_file, temp/"font.ttf")
         (temp/"text.txt").write_text(text,encoding="utf-8",newline="\n")
-        draw = f"drawtext=fontfile=font.ttf:textfile=text.txt:expansion=none:fontsize={font_size}:fontcolor={foreground}:borderw={outline_width}:bordercolor={outline_color}:line_spacing={round(font_size*0.16)}:x=(w-tw)/2:y=(h-th)/2"
+        style = f"fontfile=font.ttf:expansion=none:fontsize={font_size}:borderw={outline_width}:bordercolor={outline_color}"
+        if second_color and len(lines) == 2:
+            # Two drawtext passes on one font-metric line grid, so both lines share a baseline rhythm.
+            gap = round(font_size * 0.16)
+            for index, line in enumerate(lines):
+                (temp/f"line{index}.txt").write_text(line.strip(), encoding="utf-8", newline="\n")
+            line_height, top = "(max_glyph_a-max_glyph_d)", f"(h-2*(max_glyph_a-max_glyph_d)-{gap})/2"
+            draw = ",".join(f"drawtext={style}:textfile=line{index}.txt:fontcolor={tone}:x=(w-tw)/2:y={top}+{index}*({line_height}+{gap})"
+                            for index, tone in enumerate((foreground, second_color)))
+        else:
+            draw = f"drawtext={style}:textfile=text.txt:fontcolor={foreground}:line_spacing={round(font_size*0.16)}:x=(w-tw)/2:y=(h-th)/2"
         command = [executable("ffmpeg"),"-nostdin","-v","error","-f","lavfi","-i",f"color=c={background}:s={width}x{height}:r=1,format=rgba","-vf",draw,"-frames:v","1","-threads","1", "-n", "text.png"]
         result = subprocess.run(command,cwd=temp,capture_output=True,text=True,encoding="utf-8",errors="replace")
         if result.returncode:
@@ -63,12 +73,13 @@ def main():
     parser.add_argument("--font-size", required=True, type=int)
     parser.add_argument("--font-file", type=Path, default=ROOT / "motion/public/fonts/BeVietnamPro-Bold.ttf")
     parser.add_argument("--color", type=color, default="#FFFFFF")
+    parser.add_argument("--second-color", type=color, help="Color of line 2 when the text has two lines")
     parser.add_argument("--background", type=color, default="#00000000")
     parser.add_argument("--outline-color", type=color, default="#101010")
     parser.add_argument("--outline-width", type=int, default=5)
     args=parser.parse_args()
     try:
-        print(render_text(args.text_file,args.output,width=args.width,height=args.height,font_size=args.font_size,font_file=args.font_file,foreground=args.color,background=args.background,outline_color=args.outline_color,outline_width=args.outline_width))
+        print(render_text(args.text_file,args.output,width=args.width,height=args.height,font_size=args.font_size,font_file=args.font_file,foreground=args.color,background=args.background,outline_color=args.outline_color,outline_width=args.outline_width,second_color=args.second_color))
     except (EditorError,OSError) as error:
         parser.exit(1,f"ERROR: {error}\n")
 

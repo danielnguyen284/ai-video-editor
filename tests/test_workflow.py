@@ -11,11 +11,25 @@ from unittest.mock import patch
 
 from core.common import EditorError, ROOT, executable, read_json, write_json
 from core.jobs import create_job, new_revision
-from core.adapters.ffmpeg import mapped_captions, probe, render, validate_plan
+from core.adapters.ffmpeg import caption_lines, mapped_captions, probe, render, validate_plan, write_ass
 from core.decisions import record_choice
 
 
 class TimelineTests(unittest.TestCase):
+    def test_typed_caption_line_break_is_kept_and_counted(self):
+        # Greedy wrapping would split the compound "hệ thống"; a typed break keeps it whole.
+        self.assertEqual(caption_lines("Một loại rủi ro phi hệ thống nằm", 22), ["Một loại rủi ro phi hệ", "thống nằm"])
+        self.assertEqual(caption_lines("Một loại rủi ro\nphi  hệ thống nằm", 22), ["Một loại rủi ro", "phi hệ thống nằm"])
+        plan = {"captions": {"font_name": "Be Vietnam Pro", "font_size": 80, "margin_v": 1270, "max_chars": 22, "max_lines": 2},
+                "export": {"width": 1080, "height": 1920}}
+        with tempfile.TemporaryDirectory(dir=ROOT / ".test-output") as folder:
+            path = Path(folder) / "captions.ass"
+            write_ass(path, plan, [(0, 1, "Một loại rủi ro\nphi hệ thống nằm")])
+            self.assertIn(r"Một loại rủi ro\Nphi hệ thống nằm", path.read_text(encoding="utf-8"))
+            with self.assertRaisesRegex(EditorError, "max_lines"):
+                write_ass(path, plan, [(0, 1, "Một\nloại\nrủi ro")])
+
+
     def test_word_captions_follow_reordered_cuts(self):
         plan = {
             "fps": 30, "captions": {"max_chars": 28, "max_lines": 2},
@@ -132,6 +146,22 @@ class RenderTests(unittest.TestCase):
         alpha = pixels[3::4]
         self.assertEqual(alpha[0],0)
         self.assertEqual(max(alpha),255)
+
+        # A two-line title can colour its second line separately (navy line, red line).
+        lines_file = folder / "assets/two-lines.txt"
+        lines_file.write_text("ĐỪNG\nNẾU", encoding="utf-8")
+        two_tone = folder / "assets/visuals/two-tone.png"
+        self.run_tool([sys.executable,str(helper),"--text-file",str(lines_file),"--output",str(two_tone),"--width","200","--height","120",
+                       "--font-size","40","--color","#0000FF","--second-color","#FF0000","--outline-width","0"])
+        rgba = self.run_tool([self.ffmpeg,"-v","error","-i",str(two_tone),"-frames:v","1","-f","rawvideo","-pix_fmt","rgba","pipe:1"])
+        def strongest(rows):
+            opaque = [rgba[(y*200+x)*4:(y*200+x)*4+3] for y in rows for x in range(200) if rgba[(y*200+x)*4+3] > 200]
+            return sum(p[0] for p in opaque) > sum(p[2] for p in opaque), len(opaque)
+        top_red, top_count = strongest(range(0, 60))
+        bottom_red, bottom_count = strongest(range(60, 120))
+        self.assertTrue(top_count and bottom_count)
+        self.assertFalse(top_red)
+        self.assertTrue(bottom_red)
 
         picture = folder / "assets/visuals/illustration.png"
         self.run_tool([self.ffmpeg,"-v","error","-f","lavfi","-i","color=yellow:s=40x40","-frames:v","1",str(picture)])

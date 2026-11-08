@@ -74,12 +74,14 @@ Available templates:
 | `LowerThird` | Required `title`; optional `subtitle`, `accent` |
 | `KineticScene` | Portrait typography/cards/progress; see contract below |
 | `Keyword` | Transparent text with a separately timed emphasis line; see below |
+| `Illustration` | A job image in a rounded card with animated entry/exit and a slow camera move; see below |
+| `Points` | A large dark card of spoken points revealed on their own frames, an optional counting figure and emphasis; see below |
 
 `accent` is a six-digit hex color. These are fixed templates; add a component and validator to support a different chart form or animation. They do not verify business data. The selected domain/research workflow supplies evidence for real claims.
 
 ### Keyword
 
-`template: "Keyword"` is a text-only alpha layer: no backdrop, panel, card or opaque rectangle. Supply the normal even `width`, `height`, `fps`, `duration_frames` (at least 24 frames). Place it in free space using the overlay rectangle. It always loads bundled **Be Vietnam Pro**; missing font files fail rather than silently selecting a fallback. Color and thin text stroke must be checked against the actual footage.
+`template: "Keyword"` is a text-only alpha layer: no backdrop, panel, card or opaque rectangle. Supply the normal even `width`, `height`, `fps`, `duration_frames` (at least 24 frames). Place it in free space using the overlay rectangle. Text wraps at any space, so a long title can break inside a compound word ("cổ / phiếu"); measure each line with the bundled Bold TTF and choose a `font_size` and layer width that keep every line on one line (about 58 px fits 30 characters in a 1000 px layer). It always loads bundled **Be Vietnam Pro**; missing font files fail rather than silently selecting a fallback. Color and thin text stroke must be checked against the actual footage.
 
 | Prop | Contract |
 |---|---|
@@ -91,6 +93,37 @@ Available templates:
 | `enter_frames`, `exit_frames` | Positive integers, defaults 6/5; emphasis_frame + entry + exit must be less than asset duration |
 
 Entry is a small 5px cubic slide/fade without overshoot; exit fades and moves at most 2px. Title starts at asset frame 0; emphasis starts at its selected frame. No panel/transparent/font-name/image props, automatic word alignment, zoom or speech inference. Map source word timing through the clips before composing these requests. Existing KineticScene and LowerThird behavior stays unchanged for old assets. The same component serves Studio preview and export.
+
+### Illustration
+
+`template: "Illustration"` puts one job image (`props.image`, a path inside the job such as `assets/illustrations/chart.jpg`; JPEG, PNG or WebP) in a rounded card with a white border and shadow on a transparent layer. The CLI embeds the image as a data URL only for rendering (`request.json` keeps the path, the manifest records the image hash); Studio previews it through its local media URL.
+
+| Prop | Contract |
+|---|---|
+| `image` | Required path inside the job; missing files fail at render and on Studio save |
+| `enter`, `exit` | `slide-left` (enters from the right, leaves to the left), `slide-right`, `slide-up`, `zoom`, `wipe`, `fade`; defaults `slide-left` / `fade` |
+| `motion` | Camera move while shown: `zoom-in` (default, 1 to 1.1), `zoom-out`, `pan-left`, `pan-right`, `none` |
+| `radius` | Corner radius in px, default 4% of the width |
+| `fill` | `true`: edge to edge and opaque (no inset, border, corners or transparent margin), for a full-width panel that must hide what is under it, e.g. the fixed title |
+| `enter_frames`, `exit_frames` | Defaults 10 / 8; together shorter than the asset |
+
+Placement depends on the layout: the user's confirmed TikTok default (`preferences/default.json` `tiktok_layout`) is `fill: true` at 1080×1000, `x` 0, `y` 0, listed after the title so it covers it. A card layer (about 1000×840) can instead sit over the face area. Slides start at the layer edge, so prefer horizontal slides for a layer that does not reach the frame edge. Images must come from the user or from a source whose license allows the use; record the credit (see the job's `CREDITS.md`). The template does not search for images.
+
+### Points
+
+`template: "Points"` is a dark rounded card in bundled Be Vietnam Pro Bold, sized for phone reading (title ~52 px, points ~62 px, figure ~210 px at a 1000 px layer). It slides in and out like Illustration.
+
+| Prop | Contract |
+|---|---|
+| `title` | Required, 1-40 characters |
+| `items` | 0-6 `{text, at}`: text 1-36 characters, `at` the asset frame when it appears (map the spoken word's source time through the clips) |
+| `big`, `big_at` | Optional figure up to 10 characters; its digits count up from 0 |
+| `emphasis`, `emphasis_at` | Optional accent line up to 30 characters |
+| `accent` | Six-digit hex, default `#E5484D` |
+| `fill` | `true`: full-bleed opaque panel without corners; text starts about 230 px down so a panel at `y` 0 stays below the TikTok header. On a layer taller than 1500 px (a full-screen 1080×1920 card for long information) the text also ends above y 1400, so bottom captions stay readable on top of it |
+| `icon` | Optional path inside the job (JPEG, PNG, WebP) shown at 170 px with rounded corners beside a larger title, e.g. the official app icon of a platform the speaker names. Embedded like Illustration images; keep logos unmodified and note their source |
+
+At least one of items, `big` or `emphasis` is required. Use it instead of `KineticScene` when the text must be read on a phone and each point should land with the speech; repeat only what the speaker says, and do not present a spoken figure as verified data.
 
 ### KineticScene
 

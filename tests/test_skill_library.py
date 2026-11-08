@@ -54,17 +54,25 @@ class LibraryIntegrityTests(unittest.TestCase):
 
     def test_native_registration_is_idempotent_and_preserves_upstream(self):
         source_hash = content_digest(self.folder)
+        folders = ['.agents/skills', '.claude/skills']
         first = register_shortcuts(self.root)
-        self.assertEqual(first, {'registered': 1, 'created': 1})
+        self.assertEqual(first, {'registered': 1, 'created': 2, 'folders': folders})
         entry = self.root/'.agents/skills/video-example-edit/SKILL.md'
+        claude = self.root/'.claude/skills/video-example-edit/SKILL.md'
         self.assertTrue(entry.is_file())
-        original = entry.read_bytes()
-        stat = entry.stat().st_mtime_ns
-        self.assertEqual(register_shortcuts(self.root), {'registered': 1, 'created': 0})
-        self.assertEqual((entry.read_bytes(), entry.stat().st_mtime_ns), (original, stat))
+        self.assertIn('entrypoint để Codex', entry.read_text(encoding='utf-8'))
+        self.assertTrue(claude.read_text(encoding='utf-8').startswith('---\nname: video-example-edit\n'))
+        self.assertIn('entrypoint để Claude Code', claude.read_text(encoding='utf-8'))
+        original = (entry.read_bytes(), claude.read_bytes())
+        stat = (entry.stat().st_mtime_ns, claude.stat().st_mtime_ns)
+        self.assertEqual(register_shortcuts(self.root), {'registered': 1, 'created': 0, 'folders': folders})
+        self.assertEqual((entry.read_bytes(), claude.read_bytes()), original)
+        self.assertEqual((entry.stat().st_mtime_ns, claude.stat().st_mtime_ns), stat)
         self.assertEqual(content_digest(self.folder), source_hash)
         self.assertEqual(inventory(self.root)['packages'][0]['shortcut'], '$video-example-edit')
-        self.assertEqual(check_shortcuts(self.root)[0]['status'], 'registered')
+        rows = check_shortcuts(self.root)
+        self.assertEqual([(row['invoke'], row['status']) for row in rows],
+                         [('$video-example-edit', 'registered'), ('/video-example-edit', 'registered')])
 
     def test_duplicate_upstream_names_and_groups_have_distinct_discoverable_targets(self):
         config = read_json(self.root/'skills/library.json')
@@ -82,15 +90,16 @@ class LibraryIntegrityTests(unittest.TestCase):
         planned = entries(self.root)
         self.assertEqual({x['name'] for x in planned}, {'video-example-edit', 'video-another-edit', 'video-group-example'})
         for item in planned:
-            entry = self.root/'.agents/skills'/item['name']/'SKILL.md'
-            target = (entry.parent/'../../..'/item['target']).resolve()
-            self.assertTrue(target.is_relative_to(self.root))
-            self.assertTrue(target.is_file())
+            for folder in ('.agents/skills', '.claude/skills'):
+                entry = self.root/folder/item['name']/'SKILL.md'
+                target = (entry.parent/'../../..'/item['target']).resolve()
+                self.assertTrue(target.is_relative_to(self.root))
+                self.assertTrue(target.is_file())
         self.assertTrue(all(row['status'] == 'registered' for row in check_shortcuts(self.root)))
 
     def test_registration_refuses_local_edits_before_creating_other_shortcuts(self):
         register_shortcuts(self.root)
-        entry = self.root/'.agents/skills/video-example-edit/SKILL.md'
+        entry = self.root/'.claude/skills/video-example-edit/SKILL.md'
         entry.write_text('Local authoring change', encoding='utf-8')
         config = read_json(self.root/'skills/library.json')
         other = self.root/'.tools/library/another/edit'
@@ -102,13 +111,17 @@ class LibraryIntegrityTests(unittest.TestCase):
             register_shortcuts(self.root)
         self.assertEqual(entry.read_text(encoding='utf-8'), 'Local authoring change')
         self.assertFalse((self.root/'.agents/skills/video-another-edit').exists())
-        self.assertEqual(check_shortcuts(self.root)[0]['status'], 'modified')
+        self.assertFalse((self.root/'.claude/skills/video-another-edit').exists())
+        statuses = {(row['host'], row['name']): row['status'] for row in check_shortcuts(self.root)}
+        self.assertEqual(statuses[('codex', 'video-example-edit')], 'registered')
+        self.assertEqual(statuses[('claude', 'video-example-edit')], 'modified')
 
     def test_missing_upstream_target_does_not_create_a_dangling_shortcut(self):
         (self.folder/'SKILL.md').unlink()
         with self.assertRaisesRegex(EditorError, 'Restore the library first'):
             register_shortcuts(self.root)
         self.assertFalse((self.root/'.agents').exists())
+        self.assertFalse((self.root/'.claude').exists())
 
 
 class ComparisonTests(unittest.TestCase):

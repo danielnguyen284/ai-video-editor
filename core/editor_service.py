@@ -9,6 +9,7 @@ import threading
 import uuid
 
 from core.common import EditorError, ROOT, digest, identifier, read_json, timestamp, within, write_json
+from core.adapters.camera import clip_zoom_frames
 
 
 def fingerprint(value):
@@ -37,6 +38,32 @@ def cues_for(folder, plan):
     return [{'id': f'cue-{index:04d}', 'timeline_in_frame': round(a * plan['fps']),
              'timeline_out_frame': round(b * plan['fps']), 'text': text}
             for index, (a, b, text) in enumerate(mapped_captions(plan, transcript))]
+
+
+def transcript_words(folder, plan):
+    """Source-time words for editing by text; read-only, never rewrites a transcript.
+
+    Prefers the plan's corrected transcript, then cleaned.json, then raw.json.
+    A segment without word timings becomes one token so it can still be cut whole.
+    """
+    job = read_json(folder / 'job.json')
+    for ref in (plan['captions'].get('transcript_ref'), 'transcript/cleaned.json', 'transcript/raw.json'):
+        path = within(folder, ref) if ref else None
+        if not path or not path.is_file():
+            continue
+        data = read_json(path)
+        if data.get('asset_id') not in (None, job['assets'][0]['asset_id']):
+            continue
+        words = []
+        for index, segment in enumerate(data.get('segments', [])):
+            tokens = segment.get('words') or [{'start': segment['start'], 'end': segment['end'], 'text': segment.get('text', '')}]
+            for word in tokens:
+                text = ' '.join(str(word.get('text', '')).split())
+                if text and word['end'] > word['start']:
+                    words.append({'start': word['start'], 'end': word['end'], 'text': text, 'segment': index})
+        words.sort(key=lambda word: word['start'])
+        return {'ref': ref, 'words': words}
+    return None
 
 
 def motion_for(folder, plan):
@@ -75,12 +102,35 @@ def content_fingerprints(folder, plan, cues, motions, start, end):
     def intersect(item):
         return max(start, item['timeline_in_frame']), min(end, item['timeline_out_frame'])
 
-    clips, overlays, captions = [], [], []
+    clips, overlays, captions, sfx = [], [], [], []
     for clip in plan['clips']:
         a, b = intersect(clip)
         if a < b:
-            offset = clip['source_in_seconds'] + (a - clip['timeline_in_frame']) / plan['fps']
-            clips.append({'in': a, 'out': b, 'source': round(offset, 8), 'asset': clip['asset_id'], 'crop': clip.get('crop')})
+            rate = clip.get('playback_rate', 1)
+            offset = clip['source_in_seconds'] + (a - clip['timeline_in_frame']) / plan['fps'] * rate
+            value = {'in': a, 'out': b, 'source': round(offset, 8), 'asset': clip['asset_id'], 'crop': clip.get('crop')}
+            # Speed and zoom join the fingerprint only when they change the picture,
+            # so locks made before these features stay valid.
+            if rate != 1:
+                value['rate'] = rate
+            frames = clip_zoom_frames(clip, plan['fps'])
+            if frames:
+                visible = frames[a - clip['timeline_in_frame']:b - clip['timeline_in_frame']]
+                if any(scale != 1 for scale, _, _ in visible):
+                    value['zoom'] = [[round(s, 6), round(x, 6), round(y, 6)] if s != 1 else [1] for s, x, y in visible]
+            clips.append(value)
+    # A transition shows both neighbours' picture around its cut, so it joins a
+    # lock whose interval touches that window (absent key: older locks unchanged).
+    from core.adapters.ffmpeg import transition_split
+    transitions = []
+    for i, clip in enumerate(plan['clips']):
+        if i and clip.get('transition'):
+            before, after = transition_split(clip['transition']['frames'])
+            cut, previous = clip['timeline_in_frame'], plan['clips'][i - 1]
+            if max(start, cut - before) < min(end, cut + after):
+                transitions.append({'at': cut, 'type': clip['transition']['type'], 'frames': clip['transition']['frames'],
+                                    'from': [previous['source_out_seconds'], previous.get('playback_rate', 1)],
+                                    'to': [clip['source_in_seconds'], clip.get('playback_rate', 1)]})
     for layer in plan['overlays']:
         a, b = intersect(layer)
         if a < b:
@@ -100,12 +150,20 @@ def content_fingerprints(folder, plan, cues, motions, start, end):
             a, b = intersect(cue)
             if a < b:
                 captions.append({'start': a, 'end': b, 'text': cue['text']})
+    for item in plan['audio'].get('sfx', []):
+        a, b = intersect(item)
+        if a < b:
+            sfx.append({'start': a, 'end': b, 'offset': a - item['timeline_in_frame'], 'gain': item['gain'], 'asset_sha256': asset(item['path'])})
     job = read_json(folder / 'job.json')
     content = {'interval': [start, end], 'available': plan['duration_frames'] >= end,
                         'source': asset(job['assets'][0]['path']), 'clips': clips, 'overlays': overlays, 'captions': captions,
-                        'export': plan['export'], 'audio': plan['audio'],
+                        'export': plan['export'], 'audio': {k: v for k, v in plan['audio'].items() if k != 'sfx'},
                         'music_sha256': asset(plan['audio']['music']['path']) if plan['audio'].get('music') else None,
                         'caption_style': {k: v for k, v in plan['captions'].items() if k not in ('items', 'transcript_ref')}}
+    if sfx:
+        content['sfx'] = sfx
+    if transitions:
+        content['transitions'] = transitions
     return fingerprint(content), fingerprint(canonical_numbers(content))
 
 
@@ -142,6 +200,38 @@ def check_locks(folder, state):
                 break
         if not matched:
             raise EditorError(f"Vùng đã khóa ‘{lock['label']}’ sẽ thay đổi. Mở khóa vùng này trước khi sửa.")
+
+
+def describe_changes(before, after):
+    """Short Vietnamese summary of what a proposal changes, for the approval bar."""
+    plan_a, plan_b = before['plan'], after['plan']
+    fps = plan_a['fps']
+    changes = []
+    if plan_a['duration_frames'] != plan_b['duration_frames']:
+        changes.append(f"Thời lượng {plan_a['duration_frames'] / fps:.1f}s → {plan_b['duration_frames'] / fps:.1f}s")
+    # Splitting a clip repeats its speed/zoom/crop, so compare value sets, not lists.
+    timing = lambda plan: [(c['source_in_seconds'], c['source_out_seconds']) for c in plan['clips']]
+    values = lambda plan, key: {json.dumps(c.get(key), sort_keys=True) for c in plan['clips']}
+    if timing(plan_a) != timing(plan_b):
+        changes.append(f"Đoạn cắt {len(plan_a['clips'])} → {len(plan_b['clips'])} clip")
+    for key, label in (('playback_rate', 'Tốc độ'), ('zoom', 'Zoom'), ('crop', 'Crop nguồn')):
+        if values(plan_a, key) != values(plan_b, key):
+            changes.append(f'{label} thay đổi')
+    cues_a = {c['id']: c for c in before['cues']}
+    cues_b = {c['id']: c for c in after['cues']}
+    added, removed = len(cues_b.keys() - cues_a.keys()), len(cues_a.keys() - cues_b.keys())
+    edited = sum(1 for key in cues_a.keys() & cues_b.keys() if cues_a[key] != cues_b[key])
+    if added or removed or edited:
+        changes.append(f"Caption: thêm {added}, bỏ {removed}, sửa {edited}")
+    layers_a = {layer['id']: layer for layer in plan_a['overlays']}
+    layers_b = {layer['id']: layer for layer in plan_b['overlays']}
+    if layers_a != layers_b or before['motions'] != after['motions']:
+        changes.append(f"Lớp hình/motion {len(layers_a)} → {len(layers_b)}")
+    if plan_a['audio'] != plan_b['audio']:
+        changes.append('Âm thanh thay đổi')
+    if plan_a['export'] != plan_b['export'] or plan_a['captions'] != plan_b['captions']:
+        changes.append('Khung hình hoặc kiểu caption thay đổi')
+    return changes or ['Không có thay đổi nhìn thấy được']
 
 
 def check_render_locks(folder, plan):
@@ -205,16 +295,19 @@ class EditorStore:
                 raise EditorError('Caption cần nội dung.')
         # Validate cue ranges even when captions are disabled; retain them for later use.
         mapped_captions(plan, {})
-        import textwrap
+        from core.adapters.ffmpeg import caption_lines
         for cue in state['cues']:
-            wrapped = textwrap.wrap(' '.join(cue['text'].split()), width=plan['captions']['max_chars'], break_long_words=False, break_on_hyphens=False)
-            if len(wrapped) > plan['captions']['max_lines']:
+            if len(caption_lines(cue['text'], plan['captions']['max_chars'])) > plan['captions']['max_lines']:
                 raise EditorError('Caption quá dài. Tách cue hoặc tăng giới hạn dòng trước khi lưu.')
         layers = {layer['id']: layer for layer in plan['overlays']}
         for key, spec in state['motions'].items():
             if key not in layers or layers[key]['type'] != 'video':
                 raise EditorError('Motion cần tham chiếu đúng layer video.')
             validate_spec(spec)
+            from core.adapters.motion import job_images
+            for prop in job_images(spec):
+                if not within(folder, spec['props'][prop]).is_file():
+                    raise EditorError('Ảnh minh họa không tồn tại: ' + spec['props'][prop])
             if spec['duration_frames'] / spec['fps'] + .001 < (layers[key]['timeline_out_frame'] - layers[key]['timeline_in_frame']) / plan['fps'] + layers[key].get('source_in_seconds', 0):
                 raise EditorError('Motion ngắn hơn khoảng layer. Tăng duration của motion trước.')
         for layer in plan['overlays']:
@@ -228,26 +321,91 @@ class EditorStore:
                     raise EditorError('Video layer ngắn hơn khoảng đã chọn: ' + layer['id'])
         if plan['audio'].get('music') and not within(folder, plan['audio']['music']['path']).is_file():
             raise EditorError('File nhạc không tồn tại.')
+        for item in plan['audio'].get('sfx', []):
+            if not within(folder, item['path']).is_file():
+                raise EditorError('File SFX không tồn tại: ' + item['path'])
+
+    def _check_candidate(self, folder, before, candidate, expected_version):
+        if before['version'] != expected_version:
+            raise EditorError('Project đã được thay đổi ở nơi khác. Tải lại trước khi lưu để tránh ghi đè.')
+        for key in ('job_id', 'schema_version', 'base_revision', 'base_plan_sha256'):
+            if candidate.get(key) != before[key]:
+                raise EditorError('Không được thay metadata nguồn của draft.')
+        if digest(folder/'revisions'/before['base_revision']/'edit-plan.json') != before['base_plan_sha256']:
+            raise EditorError('Plan nguồn đã thay đổi ngoài editor. Dùng revision khác trước khi tiếp tục.')
+        self._validate(folder, candidate)
+        check_locks(folder, candidate)
+
+    def _commit(self, folder, before, candidate):
+        value = deepcopy(candidate)
+        value.pop('locks', None)
+        value.update(version=before['version']+1, updated_at=timestamp())
+        history = folder/'editor/history'/f"{value['version']:06d}.json"
+        write_json(history, value)
+        atomic_json(folder/'editor/project.json', value)
 
     def save(self, job, candidate, expected_version):
         with self.mutex:
             folder = self.folder(job)
             before = self.load(job)
-            if before['version'] != expected_version:
-                raise EditorError('Project đã được thay đổi ở nơi khác. Tải lại trước khi lưu để tránh ghi đè.')
-            for key in ('job_id', 'schema_version', 'base_revision', 'base_plan_sha256'):
-                if candidate.get(key) != before[key]:
-                    raise EditorError('Không được thay metadata nguồn của draft.')
-            if digest(folder/'revisions'/before['base_revision']/'edit-plan.json') != before['base_plan_sha256']:
-                raise EditorError('Plan nguồn đã thay đổi ngoài editor. Dùng revision khác trước khi tiếp tục.')
-            self._validate(folder, candidate)
-            check_locks(folder, candidate)
-            value = deepcopy(candidate)
-            value.pop('locks', None)
-            value.update(version=before['version']+1, updated_at=timestamp())
-            history = folder/'editor/history'/f"{value['version']:06d}.json"
-            write_json(history, value)
-            atomic_json(folder/'editor/project.json', value)
+            self._check_candidate(folder, before, candidate, expected_version)
+            self._commit(folder, before, candidate)
+            return self.load(job)
+
+    # An AI proposal is a validated candidate draft kept beside project.json.
+    # It changes nothing until the user approves it in Studio; approval is one
+    # saved version, so a single undo returns to the previous draft.
+    def propose(self, job, candidate, expected_version, summary):
+        with self.mutex:
+            folder = self.folder(job)
+            before = self.load(job)
+            self._check_candidate(folder, before, candidate, expected_version)
+            if not isinstance(summary, str) or not summary.strip():
+                raise EditorError('Đề xuất cần một câu tóm tắt thay đổi cho người dùng.')
+            state = {k: v for k, v in deepcopy(candidate).items() if k not in ('locks', 'version', 'updated_at')}
+            proposal = {'id': uuid.uuid4().hex, 'created_at': timestamp(), 'base_version': before['version'],
+                        'summary': summary.strip()[:500], 'changes': describe_changes(before, state), 'state': state}
+            self._close_proposal(folder, 'superseded', 'Một đề xuất mới thay thế đề xuất này.')
+            atomic_json(folder/'editor/proposal.json', proposal)
+            return proposal
+
+    def proposal(self, job):
+        """Pending proposal, or the most recently decided one with its status."""
+        folder = self.folder(job)
+        pending = folder/'editor/proposal.json'
+        if pending.is_file():
+            return {**read_json(pending), 'status': 'pending'}
+        decided = sorted((folder/'editor/proposals').glob('*.json'), key=lambda p: p.stat().st_mtime_ns)
+        return read_json(decided[-1]) if decided else None
+
+    def _close_proposal(self, folder, status, note):
+        pending = folder/'editor/proposal.json'
+        if not pending.is_file():
+            return None
+        # An accepted state lives on in editor/history; keep only the record.
+        record = {k: v for k, v in read_json(pending).items() if k != 'state'}
+        record.update(status=status, decided_at=timestamp(), note=note)
+        atomic_json(folder/'editor/proposals'/f"{record['id']}.json", record)
+        pending.unlink()
+        return record
+
+    def decide_proposal(self, job, proposal_id, accept, expected_version=None):
+        with self.mutex:
+            folder = self.folder(job)
+            pending = folder/'editor/proposal.json'
+            if not pending.is_file() or read_json(pending)['id'] != proposal_id:
+                raise EditorError('Đề xuất này không còn chờ duyệt.')
+            if not accept:
+                self._close_proposal(folder, 'rejected', 'UI: Người dùng bấm Bỏ đề xuất.')
+                return self.load(job)
+            proposal = read_json(pending)
+            before = self.load(job)
+            if before['version'] != proposal['base_version'] or expected_version != before['version']:
+                raise EditorError('Draft đã thay đổi sau khi AI đề xuất. Bỏ đề xuất này và nhờ AI đề xuất lại trên bản mới.')
+            candidate = {**proposal['state'], 'version': before['version'], 'updated_at': before['updated_at']}
+            self._check_candidate(folder, before, candidate, before['version'])
+            self._commit(folder, before, candidate)
+            self._close_proposal(folder, 'accepted', 'UI: Người dùng bấm Duyệt đề xuất.')
             return self.load(job)
 
     def lock(self, job, start, end, label, expected_version):

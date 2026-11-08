@@ -5,7 +5,7 @@ import { stripTypeScriptTypes } from "node:module";
 const js = stripTypeScriptTypes(
   readFileSync(new URL("../src/model.ts", import.meta.url), "utf8"),
 );
-const { replaceCaptions, captionPattern, resumeSession } = await import(
+const { replaceCaptions, captionPattern, resumeSession, captionLines, lineCount } = await import(
   "data:text/javascript;base64," + Buffer.from(js).toString("base64")
 );
 const cue = (id, start, text) => ({
@@ -92,4 +92,17 @@ test("session restoration accepts only existing jobs and valid frame/tab/zoom", 
     ),
     { job: "demo", frame: 123, tab: "text", zoom: 20 },
   );
+});
+
+test("a typed caption line break is kept like the export, each line still wraps", () => {
+  assert.deepEqual(captionLines("Một loại rủi ro phi hệ thống nằm", 22), [
+    "Một loại rủi ro phi hệ",
+    "thống nằm",
+  ]);
+  assert.deepEqual(captionLines("Một loại rủi ro\nphi  hệ thống nằm", 22), [
+    "Một loại rủi ro",
+    "phi hệ thống nằm",
+  ]);
+  assert.equal(lineCount("Một\nloại\nrủi ro", 22), 3);
+  assert.equal(lineCount("", 22), 0);
 });

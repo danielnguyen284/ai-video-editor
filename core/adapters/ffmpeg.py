@@ -8,10 +8,104 @@ import shutil
 import subprocess
 import textwrap
 
-from core.common import EditorError, ROOT, digest, executable, read_json, timestamp, within, write_json
+from core.common import EXPORT_FITS, EditorError, ROOT, digest, executable, identifier, read_json, timestamp, within, write_json
 from core.decisions import require_render_choices
 from core.validation import number, supported_keys
+from core.adapters.camera import validate_zoom, zoom_filter
 from core.adapters.visuals import composite_overlays, validate_overlays
+
+# Constant per-clip speed. atempo keeps the voice pitch.
+MIN_RATE, MAX_RATE = 0.5, 2.0
+MAX_SFX = 200
+# Voice cleanup before voice_gain. "strong" adds a gentle gate that lowers the
+# room by 12 dB only between phrases; very quiet speech can be softened too.
+DENOISE = {
+    "light": "highpass=f=70,afftdn=nr=12:nf=-50:tn=1",
+    "strong": "highpass=f=80,afftdn=nr=20:nf=-50:tn=1,agate=threshold=0.015:ratio=2:range=0.25:attack=10:release=250",
+}
+# Integrated loudness target of the final mix (TikTok plays around -14 LUFS).
+MIN_LUFS, MAX_LUFS = -24, -9
+# Picture transition into a clip, centred on the cut; the voice still cuts hard.
+TRANSITIONS = {"fade": "fade", "flash": "fadewhite", "slide-left": "slideleft", "slide-right": "slideright",
+               "slide-up": "slideup", "wipe-left": "wipeleft", "whip": "hblur"}
+MIN_TRANSITION_FRAMES, MAX_TRANSITION_FRAMES = 2, 30
+
+
+def transition_split(frames):
+    """Frames of a transition before and after its cut."""
+    return frames // 2, frames - frames // 2
+
+
+def clip_handles(plan):
+    """Extra picture frames each clip needs before its start and after its end for transitions."""
+    handles = [[0, 0] for _ in plan["clips"]]
+    for i, clip in enumerate(plan["clips"]):
+        if i and clip.get("transition"):
+            before, after = transition_split(clip["transition"]["frames"])
+            handles[i][0], handles[i - 1][1] = before, after
+    return handles
+
+
+def join_with_transitions(plan, filters, audio_parts):
+    """[cutv]/[cuta]: hard-cut runs are concatenated and runs meet in an xfade centred on the cut.
+
+    Each clip picture [vN] already carries its handles, so the xfade output keeps
+    the plan's exact frame count; the voice is concatenated without overlap.
+    """
+    fps, runs = plan["fps"], [[0]]
+    for i in range(1, len(plan["clips"])):
+        if plan["clips"][i].get("transition"):
+            runs.append([i])
+        else:
+            runs[-1].append(i)
+    labels = []
+    for r, run in enumerate(runs):
+        if len(run) == 1:
+            labels.append(f"v{run[0]}")
+        else:
+            filters.append("".join(f"[v{i}]" for i in run) + f"concat=n={len(run)}:v=1:a=0,settb=1/{fps}[run{r}]")
+            labels.append(f"run{r}")
+    current = labels[0]
+    for r in range(1, len(runs)):
+        clip = plan["clips"][runs[r][0]]
+        before, after = transition_split(clip["transition"]["frames"])
+        joined = "cutv" if r == len(runs) - 1 else f"joined{r}"
+        filters.append(f"[{current}][{labels[r]}]xfade=transition={TRANSITIONS[clip['transition']['type']]}:"
+                       f"duration={(before + after) / fps:.9f}:offset={(clip['timeline_in_frame'] - before) / fps:.9f}[{joined}]")
+        current = joined
+    filters.append("".join(audio_parts) + f"concat=n={len(audio_parts)}:v=0:a=1[cuta]")
+
+
+def validate_transitions(plan, media):
+    fps, clips = plan["fps"], plan["clips"]
+    for i, clip in enumerate(clips):
+        if "transition" not in clip:
+            continue
+        item = clip["transition"]
+        supported_keys(item, "type frames", "clip transition")
+        if item["type"] not in TRANSITIONS:
+            raise EditorError("Transition type must be one of: " + ", ".join(TRANSITIONS) + ".")
+        frames = number(item["frames"], "transition frames", MIN_TRANSITION_FRAMES, integer=True)
+        if frames > MAX_TRANSITION_FRAMES:
+            raise EditorError(f"A transition lasts {MIN_TRANSITION_FRAMES}-{MAX_TRANSITION_FRAMES} frames.")
+        if i == 0:
+            raise EditorError("The first clip cannot have a transition into it.")
+    handles = clip_handles(plan)
+    for i, clip in enumerate(clips):
+        before, after = handles[i]
+        # The clip's own frames used by the transition into it and the one out of it.
+        opening = transition_split(clip["transition"]["frames"])[1] if i and clip.get("transition") else 0
+        closing = transition_split(clips[i + 1]["transition"]["frames"])[0] if i + 1 < len(clips) and clips[i + 1].get("transition") else 0
+        if opening + closing > clip["timeline_out_frame"] - clip["timeline_in_frame"]:
+            raise EditorError(f"Transitions around {clip['clip_id']} overlap; shorten them or the neighbouring cuts.")
+        rate = clip.get("playback_rate", 1.0)
+        if clip["source_in_seconds"] - before * rate / fps < -0.001 or clip["source_out_seconds"] + after * rate / fps > media["duration_seconds"] + 0.001:
+            raise EditorError(f"Transition at {clip['clip_id']} needs picture beyond the input video; shorten it or move the cut.")
+
+
+def output_seconds(clip, source_seconds, fps):
+    """Output time of a source instant inside a clip, at the clip's speed."""
+    return clip["timeline_in_frame"] / fps + (source_seconds - clip["source_in_seconds"]) / clip.get("playback_rate", 1.0)
 
 
 def execute(command, log, cwd=None):
@@ -56,21 +150,22 @@ def validate_plan(plan, job, media):
         value = number(export[key], key, 2, integer=True)
         if value % 2:
             raise EditorError(f"{key} must be even for H.264 yuv420p.")
-    if export["fps"] != fps or export["fit"] not in ("pad", "crop"):
-        raise EditorError("Export fps must match plan fps; fit must be pad or crop.")
+    if export["fps"] != fps or export["fit"] not in EXPORT_FITS:
+        raise EditorError("Export fps must match plan fps; fit must be pad, crop or blur.")
     if not plan["clips"]:
         raise EditorError("Plan must contain at least one clip.")
     asset_ids = {asset["asset_id"] for asset in job["assets"]}
     cursor, ids = 0, set()
     for clip in plan["clips"]:
-        supported_keys(clip, "clip_id asset_id source_in_seconds source_out_seconds timeline_in_frame timeline_out_frame playback_rate crop", "clip")
+        supported_keys(clip, "clip_id asset_id source_in_seconds source_out_seconds timeline_in_frame timeline_out_frame playback_rate crop zoom transition", "clip")
         if clip["clip_id"] in ids:
             raise EditorError("clip_id must be unique inside a revision.")
         ids.add(clip["clip_id"])
         if clip["asset_id"] not in asset_ids or clip["asset_id"] != job["assets"][0]["asset_id"]:
             raise EditorError("The starter renderer supports one input video asset per job.")
-        if clip["playback_rate"] != 1.0:
-            raise EditorError("Playback speed changes are not implemented in the starter renderer.")
+        rate = number(clip["playback_rate"], "playback_rate")
+        if not MIN_RATE <= rate <= MAX_RATE:
+            raise EditorError(f"playback_rate must be between {MIN_RATE:g} and {MAX_RATE:g}.")
         start = number(clip["source_in_seconds"], "source_in_seconds")
         end = number(clip["source_out_seconds"], "source_out_seconds")
         tin = number(clip["timeline_in_frame"], "timeline_in_frame", integer=True)
@@ -79,8 +174,10 @@ def validate_plan(plan, job, media):
             raise EditorError("Source range is empty or extends beyond the input video.")
         if tin != cursor or tout <= tin:
             raise EditorError("Clips must form a contiguous, ordered timeline starting at frame 0.")
-        if abs((end - start) * fps - (tout - tin)) > 0.51:
-            raise EditorError("Source duration and timeline duration differ by more than half a frame.")
+        if abs((end - start) * fps / rate - (tout - tin)) > 0.51:
+            raise EditorError("Source duration divided by playback_rate and timeline duration differ by more than half a frame.")
+        if "zoom" in clip:
+            validate_zoom(clip["zoom"], media["duration_seconds"])
         if "crop" in clip:
             crop = clip["crop"]
             supported_keys(crop, "x y width height", "clip crop")
@@ -91,6 +188,7 @@ def validate_plan(plan, job, media):
         cursor = tout
     if number(plan["duration_frames"], "duration_frames", 1, integer=True) != cursor:
         raise EditorError("duration_frames must equal the end of the last clip.")
+    validate_transitions(plan, media)
     validate_overlays(plan)
     caps = plan["captions"]
     supported_keys(caps, "enabled transcript_ref font_name font_size margin_v max_chars max_lines items outline_width", "captions")
@@ -104,13 +202,39 @@ def validate_plan(plan, job, media):
     if 'outline_width' in caps and number(caps['outline_width'], 'captions.outline_width') > 6:
         raise EditorError('Caption outline_width must be between 0 and 6 pixels.')
     audio = plan["audio"]
-    supported_keys(audio, "voice_gain music", "audio")
+    supported_keys(audio, "voice_gain music sfx denoise loudness_lufs", "audio")
     number(audio["voice_gain"], "voice_gain")
+    if "denoise" in audio and audio["denoise"] not in DENOISE:
+        raise EditorError("audio.denoise must be light or strong; omit it for no cleanup.")
+    if "loudness_lufs" in audio and not MIN_LUFS <= number(audio["loudness_lufs"], "loudness_lufs", MIN_LUFS) <= MAX_LUFS:
+        raise EditorError(f"audio.loudness_lufs must be between {MIN_LUFS} and {MAX_LUFS}.")
     if audio.get("music"):
         supported_keys(audio["music"], "path gain ducking", "music")
         number(audio["music"]["gain"], "music gain")
         if not isinstance(audio["music"]["ducking"], bool):
             raise EditorError("music.ducking must be true or false.")
+    validate_sfx(audio.get("sfx", []), plan["duration_frames"])
+
+
+def validate_sfx(items, duration_frames):
+    """Timed one-shot sounds on the output timeline, mixed after music ducking."""
+    if not isinstance(items, list) or len(items) > MAX_SFX:
+        raise EditorError(f"audio.sfx must be an array of at most {MAX_SFX} sounds.")
+    ids = set()
+    for item in items:
+        supported_keys(item, "id path timeline_in_frame timeline_out_frame gain", "sfx")
+        identifier(item["id"])
+        if item["id"] in ids:
+            raise EditorError("SFX IDs must be unique.")
+        ids.add(item["id"])
+        if not isinstance(item["path"], str) or not item["path"]:
+            raise EditorError("SFX needs a job-relative audio path.")
+        start = number(item["timeline_in_frame"], "sfx start", integer=True)
+        end = number(item["timeline_out_frame"], "sfx end", integer=True)
+        if not start < end <= duration_frames:
+            raise EditorError("SFX timing must stay inside the output timeline.")
+        if number(item["gain"], "sfx gain") > 4:
+            raise EditorError("SFX gain must be between 0 and 4.")
 
 
 def mapped_captions(plan, transcript):
@@ -130,12 +254,13 @@ def mapped_captions(plan, transcript):
     limit = caps["max_chars"] * caps["max_lines"]
     for clip in plan["clips"]:
         source_in, source_out = clip["source_in_seconds"], clip["source_out_seconds"]
-        offset = clip["timeline_in_frame"] / fps - source_in
+        rate = clip.get("playback_rate", 1.0)
+        out = lambda seconds: output_seconds(clip, seconds, fps)
         group = []
 
         def flush():
             if group:
-                results.append((max(source_in, group[0][0]) + offset, min(source_out, group[-1][1]) + offset, " ".join(w[2] for w in group)))
+                results.append((out(max(source_in, group[0][0])), out(min(source_out, group[-1][1])), " ".join(w[2] for w in group)))
                 group.clear()
 
         for segment in transcript.get("segments", []):
@@ -145,7 +270,7 @@ def mapped_captions(plan, transcript):
                 flush()
                 if segment["start"] < source_in - 0.001 or segment["end"] > source_out + 0.001:
                     raise EditorError("A cut crosses a transcript segment without word timestamps. Supply caption items or word timestamps.")
-                results.append((segment["start"] + offset, segment["end"] + offset, segment["text"]))
+                results.append((out(segment["start"]), out(segment["end"]), segment["text"]))
                 continue
             for word in segment["words"]:
                 mid = (word["start"] + word["end"]) / 2
@@ -154,7 +279,7 @@ def mapped_captions(plan, transcript):
                 text = word["text"].strip()
                 candidate = " ".join([*(w[2] for w in group), text])
                 lines = textwrap.wrap(candidate, width=caps["max_chars"], break_long_words=False, break_on_hyphens=False)
-                if group and (len(candidate) > limit or len(lines) > caps["max_lines"] or word["end"] - group[0][0] > 2.5):
+                if group and (len(candidate) > limit or len(lines) > caps["max_lines"] or (word["end"] - group[0][0]) / rate > 2.5):
                     flush()
                 group.append((word["start"], word["end"], text))
             flush()
@@ -165,6 +290,14 @@ def mapped_captions(plan, transcript):
 def ass_time(seconds):
     total = max(0, round(seconds * 100))
     return f"{total // 360000}:{total // 6000 % 60:02d}:{total // 100 % 60:02d}.{total % 100:02d}"
+
+
+def caption_lines(text, width):
+    """Lines as exported and previewed: a typed line break is kept, each line wraps at width."""
+    lines = []
+    for part in str(text).split("\n"):
+        lines += textwrap.wrap(" ".join(part.split()), width=width, break_long_words=False, break_on_hyphens=False)
+    return lines
 
 
 def write_ass(path, plan, items):
@@ -185,8 +318,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
     lines = [header]
     for start, end, text in items:
         safe = str(text).replace("\\", " ").replace("{", "(").replace("}", ")")
-        safe = " ".join(safe.split())
-        wrapped = textwrap.wrap(safe, width=caps["max_chars"], break_long_words=False, break_on_hyphens=False)
+        wrapped = caption_lines(safe, caps["max_chars"])
         if len(wrapped) > caps["max_lines"]:
             raise EditorError("Caption exceeds max_lines. Split its words/items into shorter cues.")
         safe = r"\N".join(wrapped)
@@ -223,6 +355,13 @@ def render(folder, revision, *, dry_run=False):
         command += ["-f", "lavfi", "-i", "anullsrc=r=48000:cl=stereo"]
         audio_input = "1:a:0"
         next_input += 1
+    elif any(clip.get("transition") for clip in plan["clips"]):
+        # With transitions the picture and the voice are joined by separate
+        # filters; one shared demuxer would make one branch queue frames for
+        # the other. A second reader of the same file keeps memory flat.
+        command += ["-i", str(source)]
+        audio_input = "1:a:0"
+        next_input += 1
     music = plan["audio"].get("music")
     if music:
         music_file = within(folder, music["path"])
@@ -234,21 +373,65 @@ def render(folder, revision, *, dry_run=False):
     size = f"scale={width}:{height}:force_original_aspect_ratio="
     if export["fit"] == "pad":
         size += f"decrease:force_divisible_by=2,pad={width}:{height}:(ow-iw)/2:(oh-ih)/2:color=black"
-    else:
+    elif export["fit"] == "crop":
         size += f"increase:force_divisible_by=2,crop={width}:{height}"
-    filters, concat = [], []
+    else:
+        size += "decrease:force_divisible_by=2"
+        # Blur a 1/8-size cover copy, then upscale it: cheap and smooth.
+        small_w, small_h = max(2, width // 16 * 2), max(2, height // 16 * 2)
+        backdrop = (f"scale={small_w}:{small_h}:force_original_aspect_ratio=increase,crop={small_w}:{small_h},"
+                    f"gblur=sigma=4,scale={width}:{height},setsar=1,eq=brightness=-0.08")
+    filters, concat, audio_parts = [], [], []
+    handles = clip_handles(plan)
+    transitions = any(clip.get("transition") for clip in plan["clips"])
     for i, clip in enumerate(plan["clips"]):
         start, end = clip["source_in_seconds"], clip["source_out_seconds"]
+        rate = clip["playback_rate"]
         frames = clip["timeline_out_frame"] - clip["timeline_in_frame"]
         duration = frames / fps
         crop = clip.get("crop")
         source_crop = f"crop={crop['width']}:{crop['height']}:{crop['x']}:{crop['y']}," if crop else ""
-        filters.append(f"[0:v:0]trim=start={start:.9f}:end={end:.9f},setpts=PTS-STARTPTS,fps={fps},{source_crop}{size},setsar=1,format=yuv420p,tpad=stop_mode=clone:stop_duration={1/fps:.9f},trim=end_frame={frames}[v{i}]")
-        audio_start = start if media["has_audio"] else 0
-        filters.append(f"[{audio_input}]atrim=start={audio_start:.9f}:duration={duration:.9f},asetpts=PTS-STARTPTS,aresample=48000,aformat=sample_fmts=fltp:channel_layouts=stereo,apad,atrim=duration={duration:.9f}[a{i}]")
+        timing = "setpts=PTS-STARTPTS" if rate == 1 else f"setpts=(PTS-STARTPTS)/{rate:.9g}"
+        # A transition shows picture just beyond the cut points (handles); the
+        # zoom stays anchored to source time, so the handle frames zoom correctly.
+        before, after = handles[i]
+        picture_start = max(0.0, start - before * rate / fps)
+        picture_frames = frames + before + after
+        picture_clip = dict(clip, source_in_seconds=picture_start, source_out_seconds=end + after * rate / fps,
+                            timeline_in_frame=0, timeline_out_frame=picture_frames)
+        camera = zoom_filter(picture_clip, fps)
+        picture = f"[0:v:0]trim=start={picture_start:.9f}:end={end + after * rate / fps:.9f},{timing},fps={fps},{source_crop}{camera + ',' if camera else ''}"
+        finish = f"setsar=1,format=yuv420p,tpad=stop_mode=clone:stop_duration={1/fps:.9f},trim=end_frame={picture_frames}{f',settb=1/{fps}' if transitions else ''}[v{i}]"
+        if export["fit"] == "blur":
+            filters += [f"{picture}split=2[back{i}][front{i}]", f"[back{i}]{backdrop}[blurred{i}]",
+                        f"[front{i}]{size},setsar=1[fitted{i}]", f"[blurred{i}][fitted{i}]overlay=(W-w)/2:(H-h)/2,{finish}"]
+        else:
+            filters.append(f"{picture}{size},{finish}")
+        if not media["has_audio"]:
+            source_audio = f"atrim=start={0:.9f}:duration={duration:.9f},asetpts=PTS-STARTPTS"
+        elif rate == 1:
+            source_audio = f"atrim=start={start:.9f}:duration={duration:.9f},asetpts=PTS-STARTPTS"
+        else:
+            source_audio = f"atrim=start={start:.9f}:duration={end - start:.9f},asetpts=PTS-STARTPTS,atempo={rate:.9g}"
+        filters.append(f"[{audio_input}]{source_audio},aresample=48000,aformat=sample_fmts=fltp:channel_layouts=stereo,apad,atrim=duration={duration:.9f}[a{i}]")
+        audio_parts.append(f"[a{i}]")
         concat += [f"[v{i}]", f"[a{i}]"]
-    filters.append("".join(concat) + f"concat=n={len(plan['clips'])}:v=1:a=1[cutv][cuta]")
+    if transitions:
+        join_with_transitions(plan, filters, audio_parts)
+    else:
+        filters.append("".join(concat) + f"concat=n={len(plan['clips'])}:v=1:a=1[cutv][cuta]")
     base_video, visual_assets = composite_overlays(plan, folder, command, filters, next_input + (1 if music else 0))
+    sfx, audio_assets = plan["audio"].get("sfx", []), []
+    first_sfx = next_input + (1 if music else 0) + len(plan.get("overlays", []))
+    for i, item in enumerate(sfx):
+        path = within(folder, item["path"])
+        if not path.is_file() or not probe(path)["has_audio"]:
+            raise EditorError(f"SFX file must contain an audio stream: {item['path']}")
+        command += ["-i", str(path)]
+        length = (item["timeline_out_frame"] - item["timeline_in_frame"]) / fps
+        delay = round(item["timeline_in_frame"] / fps * 48000)
+        filters.append(f"[{first_sfx + i}:a:0]atrim=duration={length:.9f},asetpts=PTS-STARTPTS,aresample=48000,aformat=sample_fmts=fltp:channel_layouts=stereo,volume={item['gain']},adelay=delays={delay}S:all=1[sfx{i}]")
+        audio_assets.append({"id": item["id"], "path": item["path"], "sha256": digest(path), "type": "sfx"})
     if plan["captions"]["enabled"]:
         caps = plan["captions"]
         transcript = {} if "items" in caps else read_json(within(folder, caps["transcript_ref"]))
@@ -273,15 +456,26 @@ def render(folder, revision, *, dry_run=False):
         filters.append(f"[{base_video}]subtitles=filename=captions.ass{fonts_option}[vout]")
     else:
         filters.append(f"[{base_video}]null[vout]")
-    filters.append(f"[cuta]volume={plan['audio']['voice_gain']}[voice]")
+    cleanup = DENOISE[plan["audio"]["denoise"]] + "," if "denoise" in plan["audio"] else ""
+    filters.append(f"[cuta]{cleanup}volume={plan['audio']['voice_gain']}[voice]")
+    # SFX join after ducking, so music never ducks under a whoosh. Loudness
+    # normalization runs last, on the whole mix.
+    loudness = plan["audio"].get("loudness_lufs")
+    final = "mixed" if loudness is not None else "aout"
+    bed = "amain" if sfx else final
     if music:
         filters.append(f"[{next_input}:a:0]aresample=48000,aformat=sample_fmts=fltp:channel_layouts=stereo,volume={music['gain']}[music]")
         if music["ducking"]:
-            filters += ["[voice]asplit=2[keepvoice][side]", "[music][side]sidechaincompress=threshold=0.03:ratio=8:attack=20:release=350[ducked]", "[keepvoice][ducked]amix=inputs=2:duration=first:normalize=0[aout]"]
+            filters += ["[voice]asplit=2[keepvoice][side]", "[music][side]sidechaincompress=threshold=0.03:ratio=8:attack=20:release=350[ducked]", f"[keepvoice][ducked]amix=inputs=2:duration=first:normalize=0[{bed}]"]
         else:
-            filters.append("[voice][music]amix=inputs=2:duration=first:normalize=0[aout]")
+            filters.append(f"[voice][music]amix=inputs=2:duration=first:normalize=0[{bed}]")
     else:
-        filters.append("[voice]anull[aout]")
+        filters.append(f"[voice]anull[{bed}]")
+    if sfx:
+        filters.append(f"[{bed}]" + "".join(f"[sfx{i}]" for i in range(len(sfx))) + f"amix=inputs={len(sfx) + 1}:duration=first:normalize=0[{final}]")
+    if loudness is not None:
+        # Single-pass loudnorm works internally at 192 kHz; resample back.
+        filters.append(f"[mixed]loudnorm=I={loudness}:TP=-1.5:LRA=11,aresample=48000[aout]")
     (revision / "filtergraph.txt").write_text(";\n".join(filters), encoding="utf-8")
     duration = plan["duration_frames"] / fps
     command += [
@@ -304,6 +498,6 @@ def render(folder, revision, *, dry_run=False):
         "plan_sha256": digest(plan_file), "config_sha256": digest(config_file),
         "ffmpeg_version": version, "output": "renders/video.mp4",
         "duration_frames": plan["duration_frames"], "export": export,
-        "visual_assets": visual_assets,
+        "visual_assets": visual_assets, **({"audio_assets": audio_assets} if audio_assets else {}),
     })
     return output

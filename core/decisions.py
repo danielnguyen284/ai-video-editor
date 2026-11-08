@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from copy import deepcopy
 
-from core.common import EditorError, digest, read_json, timestamp, write_json
+from core.common import EXPORT_FITS, EditorError, digest, read_json, timestamp, write_json
 
 SETUP_FIELDS = {
     "style", "domain", "output", "footage_analysis", "transcription", "editing",
@@ -57,8 +57,8 @@ def validate_answers(answers):
     for key in ("width", "height", "fps"):
         if isinstance(output[key], bool) or not isinstance(output[key], int) or output[key] < 1:
             raise EditorError(f"Decision output.{key} must be a positive integer.")
-    if output["fit"] not in ("pad", "crop"):
-        raise EditorError("Decision output.fit must be pad or crop.")
+    if output["fit"] not in EXPORT_FITS:
+        raise EditorError("Decision output.fit must be pad, crop or blur.")
 
 
 def require_setup(revision):

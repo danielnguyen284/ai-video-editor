@@ -12,11 +12,11 @@ import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
 ROOT_FILES = (
-    "ai_editor.py", "launch_editor.pyw", "Open AI Editor.cmd", "AGENTS.md", "README.md", "HUONG-DAN.html",
-    "ai-video-editor-project.md", "requirements-stt.txt", "requirements-vision.txt", ".gitignore",
+    "ai_editor.py", "launch_editor.pyw", "Open AI Editor.cmd", "AGENTS.md", "CLAUDE.md", "README.md", "HUONG-DAN.html",
+    "requirements-stt.txt", "requirements-vision.txt", ".gitignore",
     "preferences/workflow.json",
 )
-SOURCE_DIRS = ("core", "skills", "profiles", "scripts", "tests", "editor", ".agents/skills")
+SOURCE_DIRS = ("core", "skills", "profiles", "scripts", "tests", "editor", ".agents/skills", ".claude/skills")
 MOTION_FILES = ("package.json", "package-lock.json", "tsconfig.json", "render.mjs")
 EXTENSIONS = {".py", ".md", ".txt", ".json", ".ps1", ".tsx", ".ts", ".mjs", ".css", ".html", ".svg"}
 EXCLUDED_PARTS = {"__pycache__", "node_modules", ".cache", ".git", ".venv", ".tools", ".test-output", "dist", "build"}

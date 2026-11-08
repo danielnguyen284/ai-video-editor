@@ -1,4 +1,4 @@
-"""Register the local video library in Codex's .agents/skills discovery directory."""
+"""Register the local video library in the Codex (.agents/skills) and Claude Code (.claude/skills) discovery directories."""
 from __future__ import annotations
 
 import argparse
@@ -21,10 +21,10 @@ def main():
         if args.check:
             rows = check_shortcuts()
             for row in rows:
-                print(f"{row['status']:10} ${row['name']}")
+                print(f"{row['status']:10} {row['invoke']}")
             return int(any(row["status"] != "registered" for row in rows))
         result = register_shortcuts()
-        print(f"Registered {result['registered']} repo skills ({result['created']} new) in .agents/skills.")
+        print(f"Registered {result['registered']} repo skills ({result['created']} new files) in {' and '.join(result['folders'])}.")
         return 0
     except (EditorError, OSError, KeyError, ValueError) as error:
         print(f"ERROR: {error}", file=sys.stderr)

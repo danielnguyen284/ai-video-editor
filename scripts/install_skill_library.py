@@ -57,7 +57,7 @@ def install(installer):
     if any(row["status"] != "installed" for row in rows):
         raise EditorError("Skill verification failed; run --check for details.")
     shortcuts = register_shortcuts()
-    print(f"Registered {shortcuts['registered']} project skill shortcuts in .agents/skills.")
+    print(f"Registered {shortcuts['registered']} project skill shortcuts in {' and '.join(shortcuts['folders'])}.")
     print(f"Verified {len(rows)} pinned skills. No upstream setup, model download or external service was started.")
 
 
@@ -78,7 +78,7 @@ def main():
             invalid = [row for row in shortcuts if row["status"] != "registered"]
             print(f"Native entrypoints: {len(shortcuts) - len(invalid)}/{len(shortcuts)} registered")
             for row in invalid:
-                print(f"{row['status']:10} ${row['name']}")
+                print(f"{row['status']:10} {row['invoke']}")
             return int(any(row["status"] != "installed" for row in rows) or bool(invalid))
         install(args.installer)
         return 0

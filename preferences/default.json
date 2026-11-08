@@ -5,6 +5,19 @@
     "visual_revision_workflow": {
       "local_editor": true,
       "preserve_approved_regions": true
+    },
+    "visual_density": {
+      "talking_head_default": "illustrated",
+      "note": "Captions plus keywords alone read as too plain. Proposals include a concrete illustration plan (licensed images in Illustration cards, Points cards timed to the speech, clip transitions at section changes) and state what the renderer cannot do yet. Still a proposal for approval, not an automatic layer."
+    },
+    "tiktok_layout": {
+      "status": "Confirmed default for talking-head TikTok edits (input-001, 08/11/2026). Propose it as the layout; the user may still change it per video.",
+      "title": "Fixed two-line title for the whole video at the top, about y 225-435 on 1080x1920: Be Vietnam Pro Bold about 76 px, line 1 dark navy #14344A, line 2 red #C02126, white outline, no box. Offer three title wordings from the transcript in the proposal. Render with scripts/render_text.py --second-color.",
+      "motion": "Illustrations and cards full width and opaque (fill: true; x 0, y 0, 1080 wide, about 1000 high, CTA cards shorter), listed after the title so they cover it while shown; keep them above the speaker's eyes.",
+      "long_info": "Long information (a list of 3 or more points, or text the viewer must read for about 8 s or more) uses a full-screen opaque Points card (1080x1920, fill: true, up to 6 points); its text sits between the TikTok header and the bottom captions, which stay readable on top.",
+      "captions": "Speech captions at the bottom: bottom edge about y 1600 (margin_v about 320 at 1080x1920), just above TikTok's caption and username rows. Check the mouth and chin on the real face position; balanced two-line items.",
+      "sound": "No sound effect when an illustration or card appears (user, 08/11/2026). A whoosh only on clip transitions, under the voice (gain about 0.35, loudest point on the cut); licensed files only.",
+      "apps": "When the speech names an app or platform (e.g. a Zalo community room), show its official, unmodified app icon (App Store listing) in the card."
     }
   },
   "overrides": {},

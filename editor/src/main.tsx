@@ -26,20 +26,36 @@ import {
   Warning,
   MagicWand,
   CornersOut,
+  SpeakerHigh,
+  MagnifyingGlassPlus,
 } from "@phosphor-icons/react";
 import { StudioPlayer } from "./StudioPlayer";
 import { CaptionPanel } from "./CaptionPanel";
+import { WordPanel } from "./WordPanel";
 import {
   clone,
   mediaUrl,
   reflow,
   uid,
   resumeSession,
+  rateOf,
+  sourceAt,
+  zoomAt,
+  TRANSITIONS,
+  ILLUSTRATION_MOVES,
+  ILLUSTRATION_MOTIONS,
+  MIN_TRANSITION_FRAMES,
+  MAX_TRANSITION_FRAMES,
   type Project,
   type View,
   type Clip,
   type Layer,
   type Cue,
+  type Sfx,
+  type Transition,
+  type TransitionType,
+  type ZoomKey,
+  type ZoomEase,
 } from "./model";
 import "./style.css";
 
@@ -61,7 +77,42 @@ async function api(path: string, body?: unknown) {
   if (!response.ok) throw new Error(data.error ?? "Không thể kết nối editor.");
   return data;
 }
-type Selection = { kind: "clip" | "layer" | "cue"; id: string } | null;
+type Selection = {
+  kind: "clip" | "layer" | "cue" | "sfx";
+  id: string;
+} | null;
+type Timed = "layer" | "cue" | "sfx";
+type Proposal = {
+  id: string;
+  summary: string;
+  changes: string[];
+  created_at: string;
+  status: string;
+  state?: Pick<
+    Project,
+    | "schema_version"
+    | "job_id"
+    | "base_revision"
+    | "base_plan_sha256"
+    | "plan"
+    | "cues"
+    | "motions"
+  >;
+};
+const timedList = (s: Project, kind: Timed): (Layer | Cue | Sfx)[] =>
+  kind === "layer"
+    ? s.plan.overlays
+    : kind === "cue"
+      ? s.cues
+      : (s.plan.audio.sfx ??= []);
+const RATES = [0.5, 0.75, 0.9, 1, 1.1, 1.15, 1.2, 1.25, 1.5, 2];
+const EASES: [ZoomEase, string][] = [
+  ["in-out", "Mượt hai đầu"],
+  ["out", "Nhanh rồi chậm"],
+  ["in", "Chậm rồi nhanh"],
+  ["linear", "Đều"],
+  ["hold", "Nhảy ngay (punch-in)"],
+];
 const tc = (frame: number, fps: number) =>
   `${Math.floor(frame / fps / 60)
     .toString()
@@ -74,8 +125,24 @@ const number = (e: React.ChangeEvent<HTMLInputElement>) =>
   Number(e.target.value);
 function App() {
   const [jobs, setJobs] = useState<any[]>([]),
-    [project, setProject] = useState<Project | null>(null),
+    [draft, setProject] = useState<Project | null>(null),
     [view, setView] = useState<View | null>(null);
+  // A pending AI proposal can be previewed read-only in place of the draft.
+  const [proposal, setProposal] = useState<Proposal | null>(null),
+    [previewing, setPreviewing] = useState(false),
+    previewRef = useRef(false),
+    proposalRef = useRef<Proposal | null>(null);
+  previewRef.current = previewing;
+  proposalRef.current = proposal;
+  const project: Project | null =
+    previewing && proposal?.state && draft
+      ? {
+          ...draft,
+          ...proposal.state,
+          locks: draft.locks,
+          version: draft.version,
+        }
+      : draft;
   const [selected, setSelected] = useState<Selection>(null),
     [frame, setFrame] = useState(0),
     [playing, setPlaying] = useState(false),
@@ -175,14 +242,23 @@ function App() {
       )
         return;
       const data = await api("project?job=" + encodeURIComponent(job));
-      const { media, source, library, setup, durations, profile, ...state } = data;
+      const {
+        media,
+        source,
+        library,
+        setup,
+        durations,
+        profile,
+        transcript,
+        ...state
+      } = data;
       current.current = state;
       version.current = state.version;
       generation.current++;
       undo.current = [];
       redo.current = [];
       setProject(state);
-      setView({ media, source, library, setup, durations, profile });
+      setView({ media, source, library, setup, durations, profile, transcript });
       setSelected(null);
       const start = Math.max(
         0,
@@ -250,6 +326,12 @@ function App() {
     (mutate: (s: Project) => void | Project, history = true) => {
       const old = current.current;
       if (!old) return;
+      if (previewRef.current) {
+        setNotice(
+          "Đang xem đề xuất của AI. Bấm Duyệt, Bỏ hoặc Về bản đang sửa trước khi chỉnh.",
+        );
+        return;
+      }
       const value = clone(old);
       let result: Project;
       try {
@@ -319,6 +401,7 @@ function App() {
     return () => clearTimeout(timer);
   }, [project, dirty, save]);
   const history = (direction: "undo" | "redo") => {
+    if (previewRef.current) return;
     const from = direction === "undo" ? undo : redo,
       to = direction === "undo" ? redo : undo;
     const previous = from.current.pop();
@@ -405,7 +488,9 @@ function App() {
         ? p!.clips.find((c) => c.clip_id === selected.id)
         : selected.kind === "layer"
           ? p!.overlays.find((l) => l.id === selected.id)
-          : project.cues.find((c) => c.id === selected.id)
+          : selected.kind === "sfx"
+            ? p!.audio.sfx?.find((x) => x.id === selected.id)
+            : project.cues.find((c) => c.id === selected.id)
       : null;
   const locked = !!(
     project &&
@@ -432,9 +517,8 @@ function App() {
         Object.assign(c, data);
         return reflow(s, clips);
       }
-      const array = selected.kind === "layer" ? s.plan.overlays : s.cues;
       Object.assign(
-        array.find((i) => i.id === selected.id)!,
+        timedList(s, selected.kind).find((i) => i.id === selected.id)!,
         data,
       );
     });
@@ -452,7 +536,11 @@ function App() {
       if (selected.kind === "layer") {
         s.plan.overlays = s.plan.overlays.filter((l) => l.id !== selected.id);
         delete s.motions[selected.id];
-      } else s.cues = s.cues.filter((c) => c.id !== selected.id);
+      } else if (selected.kind === "sfx")
+        s.plan.audio.sfx = s.plan.audio.sfx?.filter(
+          (x) => x.id !== selected.id,
+        );
+      else s.cues = s.cues.filter((c) => c.id !== selected.id);
     });
     setSelected(null);
   };
@@ -463,15 +551,16 @@ function App() {
     );
     if (!c) return;
     const second = uid("clip"),
-      at = c.source_in_seconds + (frame - c.timeline_in_frame) / fps;
+      at = sourceAt(c, frame, fps);
     change((s) => {
       const list = clone(s.plan.clips),
         index = list.findIndex((x) => x.clip_id === c.clip_id);
+      // Zoom keyframes sit on source time, so both halves keep the full list.
       list.splice(
         index,
         1,
-        { ...c, source_out_seconds: at },
-        { ...c, clip_id: second, source_in_seconds: at },
+        { ...clone(c), source_out_seconds: at },
+        { ...clone(c), clip_id: second, source_in_seconds: at },
       );
       return reflow(s, list, { [second]: c.clip_id });
     });
@@ -489,6 +578,10 @@ function App() {
   };
   const toggleLock = async () => {
     if (!project || !item) return;
+    if (previewRef.current) {
+      setNotice("Về bản đang sửa trước khi khóa hoặc mở khóa.");
+      return;
+    }
     try {
       await save();
       const s = current.current!;
@@ -559,6 +652,121 @@ function App() {
     });
     setSelected({ kind: "layer", id });
   };
+  // Pick up proposals the AI writes from the CLI; full state only when new.
+  useEffect(() => {
+    const job = draft?.job_id;
+    if (!job) return;
+    let stopped = false;
+    const check = async () => {
+      try {
+        const { proposal: next } = await api(
+          "proposal?brief=1&job=" + encodeURIComponent(job),
+        );
+        if (stopped) return;
+        if (next?.status === "pending") {
+          if (next.id !== proposalRef.current?.id) {
+            const full = await api("proposal?job=" + encodeURIComponent(job));
+            if (!stopped && full.proposal?.status === "pending")
+              setProposal(full.proposal);
+          }
+        } else if (proposalRef.current) {
+          setProposal(null);
+          setPreviewing(false);
+        }
+      } catch {
+        /* polling retries; the draft is unaffected */
+      }
+    };
+    check();
+    const timer = setInterval(check, 4000);
+    return () => {
+      stopped = true;
+      clearInterval(timer);
+      setProposal(null);
+      setPreviewing(false);
+    };
+  }, [draft?.job_id]);
+  const decideProposal = async (accept: boolean) => {
+    const offered = proposalRef.current,
+      before = current.current;
+    if (!offered || !before) return;
+    try {
+      // Unsaved edits made after the proposal are saved first; the server then
+      // refuses the stale proposal instead of silently dropping those edits.
+      if (accept && dirty) await save();
+      const result: Project = await api("proposal", {
+        job: before.job_id,
+        id: offered.id,
+        accept,
+        expected_version: version.current,
+      });
+      setPreviewing(false);
+      setProposal(null);
+      if (accept) {
+        undo.current.push(clone(current.current!));
+        redo.current = [];
+        current.current = result;
+        version.current = result.version;
+        generation.current++;
+        setProject(result);
+        setDirty(false);
+        setNotice(
+          "Đã duyệt đề xuất của AI. Ctrl+Z để quay lại bản trước (một bước).",
+        );
+      } else setNotice("Đã bỏ đề xuất; draft giữ nguyên.");
+    } catch (e: any) {
+      setError(e.message);
+    }
+  };
+  const addSfx = (asset: View["library"][number]) => {
+    if (!project) return;
+    const id = uid("sfx"),
+      start = Math.min(frame, p!.duration_frames - 1),
+      length = Math.max(1, Math.round((asset.duration_seconds || 1) * fps));
+    change((s) => {
+      timedList(s, "sfx").push({
+        id,
+        path: asset.path,
+        timeline_in_frame: start,
+        timeline_out_frame: Math.min(s.plan.duration_frames, start + length),
+        gain: 0.6,
+      });
+    });
+    setSelected({ kind: "sfx", id });
+  };
+  // Zoom edits never move timing, so they skip reflow. Always assign a new
+  // array: split clips may share one keyframe list after structuredClone.
+  const setClipZoom = (keys: ZoomKey[]) =>
+    change((s) => {
+      const c = s.plan.clips.find((c) => c.clip_id === selected?.id);
+      if (!c) return;
+      const sorted = [...keys].sort(
+        (a, b) => a.source_seconds - b.source_seconds,
+      );
+      if (sorted.length) c.zoom = sorted;
+      else delete c.zoom;
+    });
+  const zoomKeyAt = (c: Clip, seconds: number, data: Partial<ZoomKey>) => {
+    const [scale, x, y] = zoomAt(c.zoom, seconds);
+    const rest = (c.zoom ?? []).filter(
+      (k) => Math.abs(k.source_seconds - seconds) > 1e-6,
+    );
+    const base = c.zoom?.length
+      ? []
+      : [{ source_seconds: c.source_in_seconds, scale: 1, x: 0.5, y: 0.4 }];
+    return [
+      ...base.filter((k) => k.source_seconds < seconds - 1e-6),
+      ...rest,
+      {
+        source_seconds: seconds,
+        scale,
+        x: c.zoom?.length ? x : 0.5,
+        y: c.zoom?.length ? y : 0.4,
+        ease: "in-out" as ZoomEase,
+        ...data,
+      },
+    ];
+  };
   const addMotion = () => {
     if (!project || !view) return;
     if (p!.duration_frames - frame < 2 * fps) {
@@ -622,7 +830,7 @@ function App() {
   const timelineWidth = Math.max(740, ((p?.duration_frames ?? 0) / fps) * zoom);
   const drag = (
     e: React.PointerEvent,
-    kind: "layer" | "cue",
+    kind: Timed,
     id: string,
     edge: "move" | "start" | "end",
   ) => {
@@ -630,8 +838,7 @@ function App() {
     if (e.button !== 0 || !project) return;
     const start = e.clientX,
       original = clone(project),
-      list = kind === "layer" ? original.plan.overlays : original.cues,
-      entry = list.find((l) => l.id === id)!;
+      entry = timedList(original, kind).find((l) => l.id === id)!;
     if (
       original.locks.some(
         (l) =>
@@ -655,9 +862,7 @@ function App() {
         moved = true;
       }
       change((s) => {
-        const value = (kind === "layer" ? s.plan.overlays : s.cues).find(
-          (l) => l.id === id,
-        )!;
+        const value = timedList(s, kind).find((l) => l.id === id)!;
         if (edge === "move") {
           const length = entry.timeline_out_frame - entry.timeline_in_frame;
           value.timeline_in_frame = Math.max(
@@ -718,11 +923,14 @@ function App() {
     undo.current.push(original);
     redo.current = [];
     const move = (event: PointerEvent) => {
+      // Output frames dragged, converted to source seconds at the clip speed.
       const delta =
-        Math.round(
+        (Math.round(
           ((event.clientX - start) / timelineWidth) *
             original.plan.duration_frames,
-        ) / fps;
+        ) /
+          fps) *
+        rateOf(entry);
       const list = clone(original.plan.clips),
         c = list.find((c) => c.clip_id === id)!;
       if (edge === "start")
@@ -828,6 +1036,10 @@ function App() {
   };
   const exportVideo = async () => {
     if (!project || !view) return;
+    if (previewRef.current) {
+      setError("Đang xem đề xuất. Duyệt hoặc về bản đang sửa trước khi xuất.");
+      return;
+    }
     try {
       await save();
       const s = current.current!;
@@ -974,14 +1186,30 @@ function App() {
                   const data = await api(
                     "project?job=" + encodeURIComponent(project.job_id),
                   );
-                  const { media, source, library, setup, durations, profile, ...state } =
-                    data;
+                  const {
+                    media,
+                    source,
+                    library,
+                    setup,
+                    durations,
+                    profile,
+                    transcript,
+                    ...state
+                  } = data;
                   current.current = state;
                   version.current = state.version;
                   undo.current = [];
                   redo.current = [];
                   setProject(state);
-                  setView({ media, source, library, setup, durations, profile });
+                  setView({
+                    media,
+                    source,
+                    library,
+                    setup,
+                    durations,
+                    profile,
+                    transcript,
+                  });
                   setSelected(null);
                   seek(0);
                   setNotice("Đã mở " + revision + "; các vùng khóa được giữ.");
@@ -1115,6 +1343,13 @@ function App() {
               Lời thoại
             </button>
             <button
+              className={tab === "words" ? "active" : ""}
+              onClick={() => setTab("words")}
+            >
+              <Scissors size={17} />
+              Cắt chữ
+            </button>
+            <button
               className={tab === "locks" ? "active" : ""}
               onClick={() => setTab("locks")}
             >
@@ -1134,7 +1369,8 @@ function App() {
                 Bấm tài nguyên để thêm vào vị trí playhead.
               </p>
               <div className="asset-list">
-                {view?.library.map((a) => (
+                {view?.library.map((a) => {
+                  const asset = (
                   <button
                     className="asset"
                     key={a.path}
@@ -1162,7 +1398,7 @@ function App() {
                       </strong>
                       <small>
                         {a.type === "audio"
-                          ? "Nhạc nền"
+                          ? "Nhạc nền · hoặc SFX"
                           : a.path === view.source
                             ? "Nguồn · giữ nguyên file gốc"
                             : a.type === "image"
@@ -1172,7 +1408,23 @@ function App() {
                     </span>
                     <Plus size={15} />
                   </button>
-                ))}
+                  );
+                  return a.type === "audio" ? (
+                    <div className="asset-row" key={a.path}>
+                      {asset}
+                      <button
+                        className="asset-sfx"
+                        title="Thêm làm hiệu ứng âm thanh tại playhead"
+                        onClick={() => addSfx(a)}
+                      >
+                        <SpeakerHigh size={15} />
+                        SFX
+                      </button>
+                    </div>
+                  ) : (
+                    asset
+                  );
+                })}
               </div>
               <button className="motion-add" onClick={addMotion}>
                 <MagicWand size={22} />
@@ -1213,6 +1465,23 @@ function App() {
                 notify={setNotice}
               />
             </>
+          ) : tab === "words" ? (
+            view?.transcript?.words.length ? (
+              <WordPanel
+                key={project.job_id}
+                project={project}
+                words={view.transcript.words}
+                frame={frame}
+                change={change}
+                seek={seek}
+                notify={setNotice}
+              />
+            ) : (
+              <p className="aside-help">
+                Chưa có transcript có mốc thời gian. Nhờ AI phiên âm job này
+                (large-v3 local) rồi mở lại project để cắt video bằng chữ.
+              </p>
+            )
           ) : (
             <>
               <p className="aside-help">
@@ -1281,6 +1550,35 @@ function App() {
               <CornersOut size={17} />
             </button>
           </div>
+          {proposal && (
+            <div
+              className={"proposal-bar " + (previewing ? "previewing" : "")}
+              role="region"
+              aria-label="Đề xuất của AI"
+            >
+              <div>
+                <strong>
+                  <MagicWand size={15} />
+                  {previewing ? "Đang xem đề xuất của AI" : "AI đề xuất"}
+                </strong>
+                <span>{proposal.summary}</span>
+                <small>{proposal.changes.join(" · ")}</small>
+              </div>
+              <div className="proposal-actions">
+                <button onClick={() => setPreviewing((v) => !v)}>
+                  {previewing ? "Về bản đang sửa" : "Xem trước"}
+                </button>
+                <button onClick={() => decideProposal(false)}>Bỏ</button>
+                <button
+                  className="proposal-accept"
+                  onClick={() => decideProposal(true)}
+                >
+                  <Check size={15} />
+                  Duyệt
+                </button>
+              </div>
+            </div>
+          )}
           <div className="stage">
             {project && view ? (
               <div
@@ -1394,7 +1692,9 @@ function App() {
                         ? "Clip gốc"
                         : selected.kind === "cue"
                           ? "Caption"
-                          : (motion?.template ?? "Lớp hình")}
+                          : selected.kind === "sfx"
+                            ? "Hiệu ứng âm thanh"
+                            : (motion?.template ?? "Lớp hình")}
                     </span>
                     <div>
                       <button
@@ -1503,6 +1803,20 @@ function App() {
                             />
                           </Field>
                         ))}
+                        <ClipMotion
+                          clip={item as Clip}
+                          frame={frame}
+                          fps={fps}
+                          onRate={(rate) => patchItem({ playback_rate: rate })}
+                          onZoom={setClipZoom}
+                          keyAt={zoomKeyAt}
+                          seek={seek}
+                        />
+                        <ClipTransition
+                          clip={item as Clip}
+                          first={p!.clips[0]?.clip_id === (item as Clip).clip_id}
+                          onChange={(transition) => patchItem({ transition })}
+                        />
                       </>
                     ) : (
                       <div className="field-grid">
@@ -1534,6 +1848,31 @@ function App() {
                           onChange={(e) => patchItem({ text: e.target.value })}
                         />
                       </Field>
+                    )}
+                    {selected.kind === "sfx" && (
+                      <>
+                        <Field label="File">
+                          <small>{(item as Sfx).path}</small>
+                        </Field>
+                        <Field
+                          label={"Âm lượng · " + (item as Sfx).gain.toFixed(2)}
+                        >
+                          <input
+                            aria-label="Âm lượng SFX"
+                            type="range"
+                            min="0"
+                            max="2"
+                            step="0.01"
+                            value={(item as Sfx).gain}
+                            onChange={(e) => patchItem({ gain: number(e) })}
+                          />
+                        </Field>
+                        <p className="field-help">
+                          Kéo trên track SFX để đổi vị trí. SFX được trộn sau
+                          bước giảm nhạc nền nên nhạc không bị nén theo. Preview
+                          nghe tối đa âm lượng 1; mức trên 1 chỉ áp khi xuất.
+                        </p>
+                      </>
                     )}
                     {selected.kind === "layer" && (
                       <>
@@ -1590,19 +1929,63 @@ function App() {
                             />
                           </Field>
                         )}
-                        {motion && (
+                        {motion?.template === "Illustration" && (
+                          <>
+                            <h3>Ảnh minh họa · sửa trực tiếp</h3>
+                            <Field label="Ảnh (đường dẫn trong job)">
+                              <input
+                                aria-label="Ảnh minh họa"
+                                value={motion.props.image ?? ""}
+                                onChange={(e) =>
+                                  patchMotion({ image: e.target.value })
+                                }
+                              />
+                            </Field>
+                            {(
+                              [
+                                ["enter", "Kiểu vào", ILLUSTRATION_MOVES],
+                                ["exit", "Kiểu ra", ILLUSTRATION_MOVES],
+                                ["motion", "Chuyển động khi hiện", ILLUSTRATION_MOTIONS],
+                              ] as const
+                            ).map(([key, label, options]) => (
+                              <Field key={key} label={label}>
+                                <select
+                                  aria-label={label}
+                                  value={motion.props[key] ?? Object.keys(options)[0]}
+                                  onChange={(e) =>
+                                    patchMotion({ [key]: e.target.value })
+                                  }
+                                >
+                                  {Object.entries(options).map(([value, text]) => (
+                                    <option key={value} value={value}>
+                                      {text}
+                                    </option>
+                                  ))}
+                                </select>
+                              </Field>
+                            ))}
+                            <p className="field-help">
+                              Đổi ảnh: chép file vào job (Tài nguyên +) rồi nhập
+                              đường dẫn. Khung ảnh bo góc, không che caption và title.
+                            </p>
+                          </>
+                        )}
+                        {motion && motion.template !== "Illustration" && (
                           <>
                             <h3>{motion.template} · sửa trực tiếp</h3>
                             {[
                               "title",
                               ...(motion.template === "Keyword"
                                 ? ["emphasis"]
-                                : motion.template === "KineticScene"
-                                  ? ["emphasis", "subtitle"]
-                                  : motion.template === "MetricCard"
-                                    ? ["value", "subtitle"]
-                                    : ["subtitle"]),
-                              ...(motion.template === "Keyword"
+                                : motion.template === "Points"
+                                  ? ["big", "emphasis"]
+                                  : motion.template === "KineticScene"
+                                    ? ["emphasis", "subtitle"]
+                                    : motion.template === "MetricCard"
+                                      ? ["value", "subtitle"]
+                                      : ["subtitle"]),
+                              ...(motion.template === "Keyword" ||
+                              motion.template === "Points"
                                 ? []
                                 : ["source"]),
                             ].map((key) => (
@@ -1854,12 +2237,16 @@ function App() {
                     value={p.export.fit}
                     onChange={(e) =>
                       change((s) => {
-                        s.plan.export.fit = e.target.value as "pad" | "crop";
+                        s.plan.export.fit = e.target.value as
+                          | "pad"
+                          | "crop"
+                          | "blur";
                       })
                     }
                   >
                     <option value="pad">Giữ đủ hình / padding</option>
                     <option value="crop">Crop để phủ kín</option>
+                    <option value="blur">Giữ đủ hình trên nền mờ</option>
                   </select>
                 </Field>
                 <label className="toggle">
@@ -1925,6 +2312,53 @@ function App() {
                     }
                   />
                 </Field>
+                <div className="field-grid">
+                  <Field label="Giảm ồn giọng">
+                    <select
+                      value={p.audio.denoise ?? ""}
+                      onChange={(e) =>
+                        change((s) => {
+                          if (e.target.value)
+                            s.plan.audio.denoise = e.target.value as
+                              | "light"
+                              | "strong";
+                          else delete s.plan.audio.denoise;
+                        })
+                      }
+                    >
+                      <option value="">Tắt</option>
+                      <option value="light">Nhẹ</option>
+                      <option value="strong">Mạnh</option>
+                    </select>
+                  </Field>
+                  <Field label="Âm lượng chuẩn">
+                    <select
+                      value={p.audio.loudness_lufs ?? ""}
+                      onChange={(e) =>
+                        change((s) => {
+                          if (e.target.value)
+                            s.plan.audio.loudness_lufs = Number(e.target.value);
+                          else delete s.plan.audio.loudness_lufs;
+                        })
+                      }
+                    >
+                      <option value="">Tắt</option>
+                      <option value="-14">-14 LUFS · TikTok</option>
+                      <option value="-16">-16 LUFS · nhẹ hơn</option>
+                      {p.audio.loudness_lufs !== undefined &&
+                        ![-14, -16].includes(p.audio.loudness_lufs) && (
+                          <option value={p.audio.loudness_lufs}>
+                            {p.audio.loudness_lufs} LUFS
+                          </option>
+                        )}
+                    </select>
+                  </Field>
+                </div>
+                <p className="field-help">
+                  Giảm ồn và chuẩn hóa chỉ áp khi xuất; preview vẫn nghe tiếng
+                  gốc. Mức Mạnh hạ tiếng phòng giữa các câu, có thể làm nhỏ
+                  tiếng nói rất khẽ.
+                </p>
                 {p.audio.music ? (
                   <>
                     <Field label="Nhạc nền">
@@ -1975,6 +2409,10 @@ function App() {
                     Voice-only. Nhập file nhạc rồi bấm vào tài nguyên để thêm.
                   </p>
                 )}
+                <p className="field-help">
+                  SFX: bấm nút SFX cạnh file âm thanh trong Tài nguyên để đặt
+                  tại playhead.
+                </p>
               </div>
             </>
           ) : (
@@ -2048,6 +2486,10 @@ function App() {
             <div>
               <Waveform size={17} />
               Âm thanh
+            </div>
+            <div>
+              <SpeakerHigh size={17} />
+              SFX
             </div>
             <div>
               <LockKey size={17} />
@@ -2168,6 +2610,30 @@ function App() {
                     </span>
                   </div>
                 )}
+              </div>
+              <div className="track">
+                {p?.audio.sfx?.map((x) => (
+                  <div
+                    key={x.id}
+                    role="button"
+                    tabIndex={0}
+                    aria-label={"SFX: " + x.path}
+                    className={
+                      "timeline-item sfx-item " +
+                      (selected?.id === x.id ? "selected" : "")
+                    }
+                    style={{
+                      left: `${(x.timeline_in_frame / p.duration_frames) * 100}%`,
+                      width: `${((x.timeline_out_frame - x.timeline_in_frame) / p.duration_frames) * 100}%`,
+                    }}
+                    onClick={() => selectItem("sfx", x.id, x.timeline_in_frame)}
+                    onPointerDown={(e) => drag(e, "sfx", x.id, "move")}
+                  >
+                    <i onPointerDown={(e) => drag(e, "sfx", x.id, "start")} />
+                    <span>{x.path.split("/").at(-1)}</span>
+                    <i onPointerDown={(e) => drag(e, "sfx", x.id, "end")} />
+                  </div>
+                ))}
               </div>
               <div className="track locks-track">
                 {project?.locks.map((l) => (
@@ -2448,6 +2914,260 @@ function Field({
       <span>{label}</span>
       {children}
     </label>
+  );
+}
+/** Picture transition into one clip, centred on its cut; the voice keeps a hard cut. */
+function ClipTransition({
+  clip: c,
+  first,
+  onChange,
+}: {
+  clip: Clip;
+  first: boolean;
+  onChange: (transition: Transition | undefined) => void;
+}) {
+  const t = c.transition;
+  return (
+    <>
+      <h3>Chuyển cảnh vào clip</h3>
+      {first ? (
+        <p className="field-help">Clip đầu tiên không có chuyển cảnh vào.</p>
+      ) : (
+        <>
+          <Field label="Kiểu">
+            <select
+              aria-label="Kiểu chuyển cảnh"
+              value={t?.type ?? ""}
+              onChange={(e) =>
+                onChange(
+                  e.target.value
+                    ? {
+                        type: e.target.value as TransitionType,
+                        frames: t?.frames ?? 10,
+                      }
+                    : undefined,
+                )
+              }
+            >
+              <option value="">Cắt thẳng</option>
+              {Object.entries(TRANSITIONS).map(([key, label]) => (
+                <option key={key} value={key}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </Field>
+          {t && (
+            <Field label="Độ dài (frame)">
+              <input
+                type="number"
+                min={MIN_TRANSITION_FRAMES}
+                max={MAX_TRANSITION_FRAMES}
+                value={t.frames}
+                onChange={(e) =>
+                  onChange({
+                    ...t,
+                    frames: Math.max(
+                      MIN_TRANSITION_FRAMES,
+                      Math.min(
+                        MAX_TRANSITION_FRAMES,
+                        Math.round(Number(e.target.value) || 10),
+                      ),
+                    ),
+                  })
+                }
+              />
+            </Field>
+          )}
+          <p className="field-help">
+            Hình chuyển quanh điểm cắt, tiếng vẫn cắt thẳng. Cần một ít hình gốc
+            ngay trước và sau điểm cắt; bản xuất báo lỗi nếu thiếu.
+          </p>
+        </>
+      )}
+    </>
+  );
+}
+/** Speed and keyframed zoom for one clip; keyframes stay on source seconds. */
+function ClipMotion({
+  clip: c,
+  frame,
+  fps,
+  onRate,
+  onZoom,
+  keyAt,
+  seek,
+}: {
+  clip: Clip;
+  frame: number;
+  fps: number;
+  onRate: (rate: number) => void;
+  onZoom: (keys: ZoomKey[]) => void;
+  keyAt: (c: Clip, seconds: number, data: Partial<ZoomKey>) => ZoomKey[];
+  seek: (frame: number) => void;
+}) {
+  const keys = c.zoom ?? [],
+    rate = rateOf(c),
+    inside = c.timeline_in_frame <= frame && frame < c.timeline_out_frame,
+    here = sourceAt(c, frame, fps);
+  const update = (i: number, data: Partial<ZoomKey>) =>
+    onZoom(keys.map((k, j) => (j === i ? { ...k, ...data } : k)));
+  const frameOf = (k: ZoomKey) =>
+    c.timeline_in_frame +
+    Math.round(((k.source_seconds - c.source_in_seconds) * fps) / rate);
+  return (
+    <>
+      <h3>Tốc độ & zoom</h3>
+      <Field label="Tốc độ phát">
+        <select
+          aria-label="Tốc độ phát"
+          value={rate}
+          onChange={(e) => onRate(Number(e.target.value))}
+        >
+          {[...new Set([...RATES, rate])]
+            .sort((a, b) => a - b)
+            .map((r) => (
+              <option key={r} value={r}>
+                {r === 1 ? "1x · gốc" : r + "x"}
+              </option>
+            ))}
+        </select>
+      </Field>
+      <p className="field-help">
+        Giọng giữ nguyên cao độ. Caption, layer và SFX đi theo nội dung; độ dài
+        clip đổi theo tốc độ.
+      </p>
+      <div className="button-row">
+        <button
+          onClick={() =>
+            onZoom([
+              { source_seconds: c.source_in_seconds, scale: 1, x: 0.5, y: 0.4 },
+              {
+                source_seconds: c.source_out_seconds,
+                scale: 1.12,
+                x: 0.5,
+                y: 0.4,
+                ease: "in-out",
+              },
+            ])
+          }
+        >
+          <MagnifyingGlassPlus size={15} />
+          Đẩy vào chậm
+        </button>
+        <button
+          disabled={!inside}
+          onClick={() => onZoom(keyAt(c, here, { scale: 1.2, ease: "hold" }))}
+        >
+          Punch-in tại playhead
+        </button>
+      </div>
+      <div className="button-row">
+        <button disabled={!inside} onClick={() => onZoom(keyAt(c, here, {}))}>
+          <Plus size={14} />
+          Điểm tại playhead
+        </button>
+        <button disabled={!keys.length} onClick={() => onZoom([])}>
+          Bỏ zoom
+        </button>
+      </div>
+      {keys.map((k, i) => {
+        const target = frameOf(k),
+          visible =
+            c.timeline_in_frame <= target && target < c.timeline_out_frame;
+        return (
+          <div className="zoom-key" key={i}>
+            <div className="zoom-key-head">
+              <button
+                title="Tới điểm này"
+                disabled={!visible}
+                onClick={() => seek(target)}
+              >
+                {k.source_seconds.toFixed(2)}s nguồn
+                {visible ? "" : " · ngoài clip"}
+              </button>
+              <button
+                title="Dời điểm này tới playhead"
+                disabled={!inside}
+                onClick={() =>
+                  onZoom(
+                    keys
+                      .filter(
+                        (o, j) =>
+                          j === i || Math.abs(o.source_seconds - here) > 1e-6,
+                      )
+                      .map((o) =>
+                        o === k ? { ...o, source_seconds: here } : o,
+                      ),
+                  )
+                }
+              >
+                Dời tới playhead
+              </button>
+              <button
+                title="Xóa điểm zoom"
+                onClick={() => onZoom(keys.filter((_, j) => j !== i))}
+              >
+                <Trash size={14} />
+              </button>
+            </div>
+            <div className="field-grid">
+              <Field label={"Phóng · " + k.scale.toFixed(2) + "x"}>
+                <input
+                  type="range"
+                  min="1"
+                  max={Math.max(2, k.scale)}
+                  step="0.01"
+                  value={k.scale}
+                  onChange={(e) => update(i, { scale: Number(e.target.value) })}
+                />
+              </Field>
+              <Field label="Chuyển tới điểm này">
+                <select
+                  disabled={i === 0}
+                  value={k.ease ?? "in-out"}
+                  onChange={(e) =>
+                    update(i, { ease: e.target.value as ZoomEase })
+                  }
+                >
+                  {EASES.map(([value, label]) => (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              <Field label={"Tâm ngang · " + Math.round(k.x * 100) + "%"}>
+                <input
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.01"
+                  value={k.x}
+                  onChange={(e) => update(i, { x: Number(e.target.value) })}
+                />
+              </Field>
+              <Field label={"Tâm dọc · " + Math.round(k.y * 100) + "%"}>
+                <input
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.01"
+                  value={k.y}
+                  onChange={(e) => update(i, { y: Number(e.target.value) })}
+                />
+              </Field>
+            </div>
+          </div>
+        );
+      })}
+      {keys.length > 0 && (
+        <p className="field-help">
+          Điểm zoom gắn với giây nguồn nên vẫn đúng chữ khi trim, chia clip hay
+          đổi tốc độ. Tâm là điểm đứng yên khi phóng.
+        </p>
+      )}
+    </>
   );
 }
 createRoot(document.getElementById("root")!).render(<App />);

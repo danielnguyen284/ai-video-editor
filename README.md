@@ -23,9 +23,9 @@ Mở [AI Editor Studio trên máy](http://127.0.0.1:8765). Tạo project bằng 
 
 **Ưu tiên TikTok:** agent gợi ý khung dọc 9:16, mở ý sớm, nhịp cắt gọn và caption dễ đọc, tránh chữ sẵn và giao diện TikTok. Thời lượng theo nội dung, không ép mọi video dưới 60 giây. Bạn vẫn chọn hook, độ dài, framing, footage/visual và âm thanh trước khi dựng. Hướng dẫn dùng chung ở [core/platforms/tiktok.md](core/platforms/tiktok.md); preference nền tảng lưu tại `preferences/default.json` và chỉ dùng để gợi ý, không tự chọn thay bạn.
 
-**Hiện có thể chạy:** tạo job, snapshot profile/skill, STT tiếng Việt, cắt/đổi thứ tự clip, crop nguồn theo clip, pad/crop đầu ra, caption, lớp ảnh/logo/B-roll, voice gain, nhạc nền/ducking và lưu revision. Remotion tạo MetricCard, BarChart, LowerThird, Keyword và KineticScene (chữ/thẻ/progress) để ghép bằng FFmpeg; KineticScene có nền sáng/tối hoặc trong suốt. Footage analysis tạo ảnh trích, contact sheet, gợi ý cảnh/khuôn mặt/crop và đoạn nói lặp.
+**Hiện có thể chạy:** tạo job, snapshot profile/skill, STT tiếng Việt, cắt/đổi thứ tự clip, chuyển cảnh giữa clip (mờ chồng, chớp trắng, trượt, quét, lia nhanh; tiếng vẫn cắt thẳng), tốc độ cố định theo clip (0.5-2x, giữ cao độ giọng), crop nguồn theo clip, zoom keyframe/punch-in gắn với giây nguồn, pad/crop/nền mờ đầu ra, caption, lớp ảnh/logo/B-roll, voice gain, nhạc nền/ducking, SFX đặt theo timeline, giảm ồn giọng, chuẩn hóa âm lượng (-14 LUFS cho TikTok) và lưu revision. Trong Studio có thể cắt video bằng chữ trên transcript (cắt, khôi phục, tìm từ đệm, rút khoảng lặng) và duyệt hoặc bỏ đề xuất AI gửi vào. Remotion tạo MetricCard, BarChart, LowerThird, Keyword, KineticScene (chữ/thẻ/progress), Illustration (ảnh minh họa trong khung bo góc, trượt/phóng vào ra, zoom chậm) và Points (thẻ chữ lớn, từng ý hiện theo lời nói, số đếm lên) để ghép bằng FFmpeg; KineticScene có nền sáng/tối hoặc trong suốt. Footage analysis tạo ảnh trích, contact sheet, gợi ý cảnh/khuôn mặt/crop và đoạn nói lặp.
 
-**Dùng qua agent:** lựa chọn phương án dựng/research được hỏi trong IDE, CLI thực hiện kế hoạch đã chọn. Hiểu ngữ nghĩa hình ảnh có hai cách: AI trong IDE xem ảnh trích hoặc gọi model vision đã cài qua Ollama. CLI không tự hiểu prompt dựng. Animated punch zoom, crop tự di chuyển theo mặt, đổi tốc độ và SFX theo timeline chưa được triển khai.
+**Dùng qua agent:** lựa chọn phương án dựng/research được hỏi trong IDE, CLI thực hiện kế hoạch đã chọn. Hiểu ngữ nghĩa hình ảnh có hai cách: AI trong IDE xem ảnh trích hoặc gọi model vision đã cài qua Ollama. CLI không tự hiểu prompt dựng. Speed ramp trong một clip, crop tự di chuyển theo mặt, chia màn hình/PIP và chuyển cảnh giữa clip chưa được triển khai. Không kèm thư viện SFX; dùng file bạn đưa hoặc nguồn bạn đã chọn license.
 
 ## Thư viện skill mới và các phương án so sánh
 
@@ -50,15 +50,15 @@ Nguồn upstream cài trong `.tools/skill-library/`, không commit media/ví d�
 .\.venv\Scripts\python.exe ai_editor.py skills --full
 ```
 
-Có thể dùng flag `-WithSkills` trong setup. Các file đã chỉnh khác checksum được giữ nguyên và báo lỗi, không bị ghi đè. **39 entrypoint trong `.agents/skills/`** giúp Codex nhận diện 33 skill riêng lẻ và 6 nhóm trong menu; source upstream vẫn nằm tại `.tools/skill-library/`. Đây là skill phạm vi repo, không thay đổi skill toàn cục.
+Có thể dùng flag `-WithSkills` trong setup. Các file đã chỉnh khác checksum được giữ nguyên và báo lỗi, không bị ghi đè. **40 entrypoint trong `.agents/skills/` (Codex) và `.claude/skills/` (Claude Code)** giúp cả hai nhận diện 33 skill riêng lẻ, 6 nhóm và `video-edit` (điểm vào quy trình dựng của dự án) trong menu; source upstream vẫn nằm tại `.tools/skill-library/`. Đây là skill phạm vi repo, không thay đổi skill toàn cục.
 
-Trong Codex CLI/IDE, mở đúng workspace `ai-editor`, gõ `$video-` rồi chọn skill. Ví dụ: `$video-melvynx-short-editing` cho một workflow cụ thể, `$video-motion-prompt` để chọn motion, hoặc `$video-group-melvynx-raw` để chọn cả nhóm và định tuyến tới helper phù hợp. Prompt mẫu:
+Trong Codex CLI/IDE, mở đúng workspace `ai-editor`, gõ `$video-` rồi chọn skill. Ví dụ: `$video-melvynx-short-editing` cho một workflow cụ thể, `$video-motion-prompt` để chọn motion, hoặc `$video-group-melvynx-raw` để chọn cả nhóm và định tuyến tới helper phù hợp. Trong Claude Code, dùng cùng tên với dấu `/`, ví dụ `/video-melvynx-short-editing`. Prompt mẫu:
 
 > Dùng $video-melvynx-short-editing dựng `inbox/raw.mp4` thành TikTok tiếng Việt. Đề xuất cách cắt, caption và hình minh họa để tôi chọn.
 
 Hoặc chỉ cần chỉ định video và nói “edit giúp tôi video này”; agent dùng flow trên và tự đề xuất nhóm phù hợp. Không cần lặp model/engine ở mỗi prompt. Nếu chưa rõ video nào hoặc có một quyết định không thể suy ra từ nguồn, agent chỉ hỏi phần còn thiếu đó.
 
-Không cần gõ tên profile JSON vào menu `$`; profile dùng khi tạo job qua CLI/Studio. Trong ChatGPT, dùng menu `@` nếu host hiển thị skill. Nếu danh sách vẫn cũ, khởi động lại Codex và mở lại đúng repo. [Cách gọi và vị trí nhận diện skill chính thức](https://learn.chatgpt.com/docs/build-skills). Lệnh phục hồi riêng entrypoint: `.venv/Scripts/python.exe scripts/register_skill_shortcuts.py`.
+Không cần gõ tên profile JSON vào menu `$`; profile dùng khi tạo job qua CLI/Studio. Trong ChatGPT, dùng menu `@` nếu host hiển thị skill. Nếu danh sách vẫn cũ, khởi động lại Codex hoặc mở phiên Claude Code mới trong đúng repo. [Cách gọi và vị trí nhận diện skill chính thức](https://learn.chatgpt.com/docs/build-skills). Lệnh phục hồi riêng entrypoint: `.venv/Scripts/python.exe scripts/register_skill_shortcuts.py`.
 
 **OpenChatCut là ứng viên thay giao diện.** Skill kết nối đã cài; app và MCP chưa cấu hình. [Đánh giá kỹ thuật và phương án chuyển dữ liệu](core/openchatcut.md) chỉ ra những phần cần map, đặc biệt khóa vùng đã duyệt và custom motion. Studio hiện tại tiếp tục phục vụ job cũ.
 
@@ -151,9 +151,8 @@ Thư mục này là mặc định đã chọn của workspace; setup không tự
 ```text
 AGENTS.md                     Agent đọc hướng dẫn thao tác
 ai_editor.py                  CLI Python
-ai-video-editor-project.md    Bản thiết kế gốc (lưu trữ)
 core/
-  roles/                      Trách nhiệm từng role
+  roles.md                    Trách nhiệm từng role
   adapters/                   FFmpeg, STT, visual, Remotion, footage và Ollama
   schemas/edit-plan.md        Cấu trúc plan, khả năng thực tế
 skills/
@@ -201,6 +200,13 @@ Skill nằm trong dự án, được agent đọc qua `AGENTS.md`/profile. Chưa
 # AI đưa phương án dựng cụ thể; sau lựa chọn của người dùng, áp dụng vào plan
 # rồi ghi decide --stage edit-plan --summary ... --user-message ...
 
+# Sau khi duyệt: bỏ các đoạn giây gốc đã chốt; điểm cắt tự dời về khe lặng, báo từ bị cắt ngang
+.\.venv\Scripts\python.exe ai_editor.py cut hpg-001 --revision r001 --remove 0-0.8 12.75-14.13
+# Caption 2 dòng cân đối từ transcript đã sửa, không tách từ ghép
+.\.venv\Scripts\python.exe ai_editor.py captions hpg-001 --revision r001
+# Dựng thử 25 giây đầu và ảnh ghép vài mốc vào previews/, không tạo revision
+.\.venv\Scripts\python.exe ai_editor.py preview hpg-001 --revision r001 --seconds 25 --stills 1 12 24
+
 # Xem lệnh và filtergraph sẽ chạy; chưa xuất video
 .\.venv\Scripts\python.exe ai_editor.py render hpg-001 --revision r001 --dry-run
 
@@ -214,13 +220,17 @@ Skill nằm trong dự án, được agent đọc qua `AGENTS.md`/profile. Chưa
 # Feedback cụ thể được tính là lựa chọn; hỏi thêm khi còn quyết định mới/chưa rõ
 # và ghi lại lựa chọn edit-plan cho r002
 .\.venv\Scripts\python.exe ai_editor.py render hpg-001 --revision r002
+
+# AI gửi bản sửa draft để bạn bấm Duyệt/Bỏ trong Studio; draft chưa đổi cho tới khi duyệt
+.\.venv\Scripts\python.exe ai_editor.py propose hpg-001 --state proposal.json --summary "Cắt từ đệm và rút khoảng lặng"
+.\.venv\Scripts\python.exe ai_editor.py proposal hpg-001
 ```
 
 `revision` lưu prompt, copy kế hoạch và giữ các lựa chọn setup đã chốt; phương án sửa của bản mới cần được ghi nhận riêng. `decide` chỉ lưu câu trả lời, agent phải thực sự hỏi và áp dụng câu trả lời đó. `render` chặn khi còn lựa chọn chưa trả lời hoặc plan/config đã đổi sau lựa chọn được lưu; `--dry-run` vẫn chuẩn bị được lệnh trước khi chốt phương án. Đây là lựa chọn của người dùng, không phải review bởi AI.
 
 `render` mặc định dùng revision mới nhất nếu bỏ `--revision`. Bản xuất sẵn không bị ghi đè. Lỗi thực thi nằm trong `ffmpeg.log`; không có bước AI tự chấm điểm hay tự dựng lại sau khi xuất.
 
-Plan nháp dùng `fit: pad` để chuẩn bị dữ liệu; agent phải hỏi bạn giữ toàn bộ hình với padding hay crop trước khi xuất. Giá trị trong plan nháp không được tính là bạn đã chọn. Footage analysis có gợi ý crop cố định từ ảnh mẫu, chưa có crop tự di chuyển theo mặt.
+Plan nháp dùng `fit: pad` để chuẩn bị dữ liệu; agent phải hỏi bạn giữ toàn bộ hình với padding, crop hay nền mờ (`blur`) trước khi xuất. Giá trị trong plan nháp không được tính là bạn đã chọn. Footage analysis có gợi ý crop cố định từ ảnh mẫu, chưa có crop tự di chuyển theo mặt.
 
 ## 5. Thêm style hoặc lĩnh vực
 
