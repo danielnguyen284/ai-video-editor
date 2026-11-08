@@ -84,5 +84,9 @@ try {
     Step 'Checking the installation'
     & $projectPython ai_editor.py doctor
     if ($LASTEXITCODE -ne 0) { throw 'Some required parts are missing (see the lines above). Run setup again with -All.' }
-    Write-Host "`nSetup finished. Open 'AI Editor Studio' on the desktop, then open this folder in Codex or Claude Code." -ForegroundColor Green
+    if ($WithEditor) {
+        Write-Host "`nSetup finished. Open 'AI Editor Studio' on the desktop, then open this folder in Codex or Claude Code." -ForegroundColor Green
+    } else {
+        Write-Host "`nSetup finished for the selected parts. Run setup with -All to add the rest (Studio, model, motion)." -ForegroundColor Green
+    }
 } finally { Pop-Location }
